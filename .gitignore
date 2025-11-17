@@ -1,0 +1,16 @@
+# Environment variables
+.env
+.env.local
+
+# Dependencies
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# MCP local configuration (contains secrets)
+.mcp.json.local
+
+# Ignore cursor AI rules
+.cursor/rules/codacy.mdc

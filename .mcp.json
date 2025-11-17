@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "heysol": {
+      "type": "http",
+      "url": "https://core.heysol.ai/api/v1/mcp?source=claude",
+      "headers": {
+        "Authorization": "Bearer ${HEYSOL_API_KEY}"
+      }
+    }
+  }
+}
