@@ -8,7 +8,7 @@ function initializeDatabase() {
   try {
     supabaseClient = createClient(
       config.supabase.url,
-      config.supabase.serviceRoleKey || config.supabase.anonKey,
+      config.supabase.serviceRoleKey,
       {
         auth: {
           autoRefreshToken: true,

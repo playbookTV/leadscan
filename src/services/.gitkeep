@@ -1,0 +1,10 @@
+# Services Directory
+This directory will contain service modules for:
+- polling.js - Main polling orchestrator
+- twitter-poller.js - Twitter-specific polling
+- linkedin-poller.js - LinkedIn-specific polling
+- lead-scorer.js - Lead scoring algorithms
+- notifier.js - Telegram notifications
+- analytics.js - Performance tracking
+
+Currently empty - to be implemented in Phase 2.
