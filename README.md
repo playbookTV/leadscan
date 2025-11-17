@@ -1,6 +1,149 @@
-# Lead Finder - Automated Lead Generation System
+# Leadscout Monorepo
 
-An intelligent lead generation system that monitors Twitter and LinkedIn 24/7 for web development project opportunities, automatically scoring and notifying you via Telegram when high-quality leads are discovered.
+Lead generation system for Ovalay Studios - automatically finds and qualifies web development opportunities from Twitter and LinkedIn.
+
+## Project Structure
+
+```
+Leadscout/
+├── apps/
+│   ├── api/                     # Backend service (Node.js)
+│   │   ├── src/                 # Source code
+│   │   ├── database/            # SQL schemas
+│   │   └── logs/                # Application logs
+│   │
+│   └── web/                     # Frontend dashboard (React)
+│       ├── src/                 # React components
+│       └── public/              # Static assets
+│
+├── packages/
+│   └── types/                   # Shared TypeScript types
+│
+└── Doc/                         # Project documentation
+```
+
+## Tech Stack
+
+- **Backend**: Node.js 20+, ES Modules
+- **Frontend**: React 18, Vite, TypeScript, TailwindCSS
+- **Database**: Supabase (PostgreSQL)
+- **Package Manager**: pnpm workspaces
+- **APIs**: Twitter, LinkedIn, OpenAI, Telegram
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js >= 20.0.0
+- pnpm >= 8.0.0
+
+### Installation
+
+```bash
+# Clone the repository
+git clone <repo-url>
+cd Leadscout
+
+# Install all dependencies
+pnpm install
+```
+
+### Configuration
+
+1. **Backend** (`apps/api/.env`):
+   - Copy `apps/api/.env.example` to `apps/api/.env`
+   - Fill in all required API keys and tokens
+
+2. **Frontend** (`apps/web/.env`):
+   - Copy `apps/web/.env.example` to `apps/web/.env`
+   - Update API_URL if backend runs on different port
+
+### Development
+
+```bash
+# Run both backend and frontend in parallel
+pnpm dev
+
+# Or run separately:
+
+# Backend only (port 3000)
+pnpm dev:api
+
+# Frontend only (port 5173)
+pnpm dev:web
+```
+
+### Production
+
+```bash
+# Build frontend
+pnpm build:web
+
+# Start backend
+pnpm start:api
+```
+
+## Monorepo Commands
+
+```bash
+# Install dependencies for all workspaces
+pnpm install
+
+# Run command in specific workspace
+pnpm --filter @leadscout/api <command>
+pnpm --filter @leadscout/web <command>
+
+# Clean all node_modules
+pnpm clean
+
+# Run dev servers in parallel
+pnpm dev
+```
+
+## Architecture
+
+### Backend Service (`apps/api`)
+
+Handles automated polling, lead scoring, and notifications:
+
+- **Polling**: Runs every 30 minutes via cron
+- **Scoring**: Two-stage system (regex patterns + AI analysis)
+- **Notifications**: Real-time Telegram alerts for high-score leads
+- **Health Check**: HTTP endpoint at `/health`
+
+### Frontend Dashboard (`apps/web`)
+
+React-based dashboard for lead management:
+
+- **Lead List**: View and filter all discovered leads
+- **Analytics**: Track performance metrics and conversion rates
+- **Settings**: Manage keywords and notification preferences
+
+### Shared Types (`packages/types`)
+
+TypeScript interfaces shared between frontend and backend:
+
+- `Lead`: Complete lead data structure
+- `Keyword`: Search keyword configuration
+- `PollingLog`: Execution history
+- `Notification`: Alert tracking
+
+## API Integrations
+
+### Required API Keys
+
+- **Supabase**: Database and authentication
+- **Twitter**: Search API for finding leads
+- **LinkedIn**: RSS feeds for public posts
+- **OpenAI**: GPT-4o-mini for lead analysis
+- **Telegram**: Bot for instant notifications
+
+### Rate Limits
+
+- Twitter: 450 requests per 15-min window
+- LinkedIn: RSS feeds polled every 2 hours
+- OpenAI: Max $2/day budget enforced
+- Telegram: 30 messages/second per chat
 
 ## Features
 
@@ -12,255 +155,21 @@ An intelligent lead generation system that monitors Twitter and LinkedIn 24/7 fo
 - **Technology Matching**: Identifies mentioned technologies and project types
 - **Performance Tracking**: Analytics on keyword performance and conversion rates
 
-## Tech Stack
-
-- **Runtime**: Node.js 20.x (ES Modules)
-- **Database**: Supabase (PostgreSQL 15)
-- **APIs**: Twitter API v2, LinkedIn API, OpenAI GPT-4, Telegram Bot API
-- **Hosting**: Railway (planned)
-- **Package Manager**: pnpm
-
-## Prerequisites
-
-- Node.js >= 20.0.0
-- pnpm package manager
-- Supabase account and project
-- Twitter Developer account with API access
-- LinkedIn Developer account (optional)
-- OpenAI API key
-- Telegram Bot created via BotFather
-- PostgreSQL database (via Supabase)
-
-## Installation
-
-1. **Clone the repository**
-```bash
-git clone https://github.com/yourusername/leadscout.git
-cd leadscout
-```
-
-2. **Install dependencies**
-```bash
-pnpm install
-```
-
-3. **Set up environment variables**
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and add your API keys:
-- Supabase URL and Service Role Key
-- Twitter API credentials
-- LinkedIn OAuth tokens (optional)
-- OpenAI API key
-- Telegram Bot token and Chat ID
-
-4. **Create database schema**
-
-Run the SQL script in your Supabase SQL editor:
-```bash
-# Copy contents of database/schema.sql to Supabase SQL editor
-# This creates all required tables, indexes, and seed data
-```
-
-5. **Verify installation**
-```bash
-# Test the application
-node src/index.js
-```
-
-You should see:
-- "Starting Ovalay Lead Finder"
-- "Database connection successful"
-- "Application started successfully"
-
-## Configuration
-
-### Environment Variables
-
-| Variable | Required | Description | Default |
-|----------|----------|-------------|---------|
-| `SUPABASE_URL` | Yes | Your Supabase project URL | - |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key | - |
-| `TWITTER_API_KEY` | No* | Twitter API key | - |
-| `TWITTER_API_SECRET` | No* | Twitter API secret | - |
-| `TWITTER_BEARER_TOKEN` | No* | Twitter Bearer token | - |
-| `TWITTER_ACCESS_TOKEN` | No* | Twitter access token | - |
-| `TWITTER_ACCESS_SECRET` | No* | Twitter access secret | - |
-| `LINKEDIN_CLIENT_ID` | No* | LinkedIn client ID | - |
-| `LINKEDIN_CLIENT_SECRET` | No* | LinkedIn client secret | - |
-| `LINKEDIN_ACCESS_TOKEN` | No* | LinkedIn access token | - |
-| `OPENAI_API_KEY` | Yes | OpenAI API key | - |
-| `OPENAI_MAX_DAILY_COST` | No | Maximum daily OpenAI spend | 2.00 |
-| `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token | - |
-| `TELEGRAM_CHAT_ID` | Yes | Telegram chat ID for notifications | - |
-| `POLLING_INTERVAL_MINUTES` | No | Polling frequency in minutes | 30 |
-| `MIN_NOTIFICATION_SCORE` | No | Minimum score for Telegram alerts | 8 |
-| `AI_MIN_SCORE_THRESHOLD` | No | Minimum score for AI analysis | 5 |
-
-*Required for the respective platform polling
-
-### Scoring Configuration
-
-The system uses a two-stage scoring approach:
-
-1. **Quick Score (0-10)**: Regex-based pattern matching
-   - Budget mentioned: +3 points
-   - Urgency signals: +2 points
-   - Timeline specified: +1 point
-   - Contact method: +2 points
-   - Technology match: +1-2 points
-
-2. **AI Analysis**: GPT-4 analysis for leads scoring ≥ 5
-   - Adds 0-5 additional points
-   - Extracts budget, timeline, technologies
-   - Identifies red flags (free work, equity-only)
-
-## Project Structure
-
-```
-leadscout/
-├── src/
-│   ├── index.js              # Application entry point
-│   ├── config/
-│   │   ├── database.js       # Supabase client initialization
-│   │   └── env.js            # Environment configuration
-│   ├── services/             # Core services (Phase 2)
-│   │   ├── polling.js        # Main polling orchestrator
-│   │   ├── twitter-poller.js # Twitter-specific polling
-│   │   ├── linkedin-poller.js# LinkedIn-specific polling
-│   │   ├── lead-scorer.js    # Scoring algorithms
-│   │   └── notifier.js       # Telegram notifications
-│   └── utils/
-│       └── logger.js         # Winston logger setup
-├── database/
-│   └── schema.sql            # PostgreSQL schema
-├── logs/                     # Application logs (auto-created)
-├── .env.example              # Environment template
-├── package.json              # Dependencies
-└── README.md                 # This file
-```
-
-## Database Schema
-
-The system uses 6 main tables:
-
-- **leads**: Discovered opportunities with scores and metadata
-- **keywords**: Search terms with performance tracking (155+ preloaded)
-- **oauth_tokens**: Platform authentication tokens
-- **polling_logs**: Execution history and health monitoring
-- **notifications**: Telegram notification tracking
-- **user_actions**: User interactions with notifications
-
-## Running the Application
-
-### Development Mode
-```bash
-pnpm run dev
-```
-
-### Production Mode
-```bash
-pnpm start
-```
-
-### Commands
-
-| Command | Description |
-|---------|-------------|
-| `pnpm install` | Install dependencies |
-| `pnpm start` | Start production server |
-| `pnpm run dev` | Start development server with hot reload |
-| `pnpm test` | Run tests (not yet implemented) |
-
-## API Rate Limits
-
-- **Twitter**: 450 requests/15min, 500k tweets/month
-- **LinkedIn**: 100 requests/day (very restrictive)
-- **OpenAI**: 10k requests/min, $2/day budget limit
-- **Telegram**: 30 messages/second per chat
-
-## Monitoring & Health
-
-The application logs to both console and file:
-- **Console**: Colored, human-readable format
-- **File**: JSON format in `logs/app.log`
-- **Log rotation**: 10MB max file size, keeps 5 files
-
-Health indicators tracked:
-- System uptime and memory usage
-- Database connectivity
-- Last polling timestamp
-- Daily lead count and notification stats
-- API token validity
-
 ## Development Workflow
 
-1. **Database First**: Update schema.sql before implementing features
-2. **API Testing**: Test API connectivity with small scripts first
-3. **Logging**: Use Winston logger (ERROR, WARN, INFO, DEBUG levels)
-4. **Error Handling**: Implement exponential backoff for API calls
-5. **Security**: Never log API keys or sensitive data
+1. **Feature Development**: Create feature branches from `main`
+2. **Testing**: Manual testing checklist in `Doc/Project-Doc.md`
+3. **Code Quality**: Follow ES Module patterns, use winston for logging
+4. **Deployment**: Railway for backend, Vercel/Netlify for frontend
 
-## Security Considerations
+## Documentation
 
-- OAuth tokens stored encrypted in database
-- Service role key used for backend operations only
-- All sensitive configuration via environment variables
-- Error messages sanitized before logging
-- Compliance with platform Terms of Service
-
-## Performance Targets
-
-- **Uptime**: >99%
-- **Polling cycle**: <2 minutes completion
-- **Lead processing**: <5 seconds per lead
-- **Notification delivery**: <2 minutes from post
-- **Database queries**: <100ms (95th percentile)
-
-## Future Enhancements
-
-- [ ] Web dashboard for analytics
-- [ ] Machine learning for scoring optimization
-- [ ] Additional platforms (Reddit, Discord)
-- [ ] Email notifications as alternative to Telegram
-- [ ] Automated response templates
-- [ ] CRM integration
-
-## Troubleshooting
-
-### Database Connection Failed
-- Verify SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
-- Check if schema.sql has been executed
-- Ensure Supabase project is active
-
-### No Leads Found
-- Check API credentials for platforms
-- Verify keywords table has entries
-- Review polling_logs table for errors
-
-### Notifications Not Received
-- Verify TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID
-- Ensure bot has permission to send messages
-- Check MIN_NOTIFICATION_SCORE threshold
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a pull request
-
-## License
-
-MIT License - see LICENSE file for details
+- **Project Specification**: `Doc/Project-Doc.md` - Complete PRD and technical details
+- **Backend README**: `apps/api/README.md` - API service documentation
+- **Frontend README**: `apps/web/README.md` - Dashboard documentation
+- **Architecture Guide**: `AGENTS.md` - System design and build guidelines
+- **Claude Integration**: `CLAUDE.md` - Guidance for Claude Code sessions
 
 ## Support
 
-For issues, questions, or suggestions, please open an issue on GitHub.
-
----
-
-Built with passion for automating lead generation by Ovalay Studios
+For questions or issues, contact Leslie at Ovalay Studios.

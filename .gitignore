@@ -1,16 +1,40 @@
-# Environment variables
-.env
-.env.local
-
 # Dependencies
 node_modules/
+**/node_modules/
 
 # Logs
 logs/
 *.log
+apps/api/logs/*
+!apps/api/logs/.gitkeep
+
+# Environment
+.env
+.env.local
+**/.env
+
+# Build
+dist/
+build/
+apps/web/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # MCP local configuration (contains secrets)
 .mcp.json.local
 
 # Ignore cursor AI rules
 .cursor/rules/codacy.mdc
+
+# Old backup files
+*.old
+package.json.old
+pnpm-lock.yaml.old

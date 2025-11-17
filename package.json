@@ -1,37 +1,25 @@
 {
-  "name": "lead-finder",
+  "name": "leadscout-monorepo",
   "version": "1.0.0",
-  "description": "Automated lead generation system for Ovalay Studios",
+  "private": true,
   "type": "module",
-  "main": "src/index.js",
-  "engines": {
-    "node": ">=20.0.0"
-  },
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "pnpm --parallel --recursive run dev",
+    "dev:api": "pnpm --filter @leadscout/api run dev",
+    "dev:web": "pnpm --filter @leadscout/web run dev",
+    "start:api": "pnpm --filter @leadscout/api run start",
+    "build:web": "pnpm --filter @leadscout/web run build",
+    "build": "pnpm --recursive run build",
+    "install:all": "pnpm install",
+    "clean": "pnpm --recursive exec rm -rf node_modules dist"
   },
-  "keywords": [
-    "lead-generation",
-    "twitter",
-    "linkedin",
-    "automation"
+  "workspaces": [
+    "apps/*",
+    "packages/*"
   ],
-  "author": "Leslie (Ovalay Studios)",
-  "license": "MIT",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.39.0",
-    "axios": "^1.6.2",
-    "dotenv": "^16.3.1",
-    "node-cron": "^3.0.3",
-    "node-telegram-bot-api": "^0.64.0",
-    "openai": "^4.20.1",
-    "rss-parser": "^3.13.0",
-    "twitter-api-v2": "^1.15.2",
-    "winston": "^3.11.0"
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
   },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
-  }
+  "packageManager": "pnpm@8.15.0"
 }
