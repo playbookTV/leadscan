@@ -8,7 +8,7 @@ let callbackHandlers = new Map();
 
 /**
  * Initialize Telegram bot
- * Uses polling mode for development, can be switched to webhook for production
+ * Uses polling mode for development, webhooks for production
  */
 function initializeTelegramBot() {
   try {
@@ -22,14 +22,18 @@ function initializeTelegramBot() {
       throw new Error('Telegram chat ID is required');
     }
 
-    // Initialize bot with polling for development
-    // In production on Railway, consider using webhooks instead
+    // Determine if we should use polling or webhooks
+    // Use polling in development or when explicitly enabled via env var
+    const usePolling = config.nodeEnv === 'development' ||
+                       process.env.TELEGRAM_USE_POLLING === 'true';
+
+    // Initialize bot
     telegramBot = new TelegramBot(config.telegram.botToken, {
-      polling: config.nodeEnv === 'development' ? true : false
+      polling: usePolling
     });
 
-    // Handle polling errors
-    if (config.nodeEnv === 'development') {
+    // Handle polling errors if polling is enabled
+    if (usePolling) {
       telegramBot.on('polling_error', (error) => {
         logger.error('Telegram polling error', {
           error: error.message,
@@ -42,8 +46,9 @@ function initializeTelegramBot() {
     telegramBot.on('callback_query', handleCallbackQuery);
 
     logger.info('Telegram bot initialized successfully', {
-      mode: config.nodeEnv === 'development' ? 'polling' : 'webhook',
-      chatId: config.telegram.chatId
+      mode: usePolling ? 'polling' : 'webhook',
+      chatId: config.telegram.chatId,
+      nodeEnv: config.nodeEnv
     });
 
     return telegramBot;
@@ -282,13 +287,90 @@ function createLeadActionKeyboard(leadId, postUrl, profileUrl) {
 }
 
 /**
+ * Set up webhook for production
+ * @param {string} webhookUrl - The full webhook URL (e.g., https://your-domain.com/api/telegram/webhook)
+ */
+async function setupWebhook(webhookUrl) {
+  try {
+    if (!telegramBot) {
+      throw new Error('Telegram bot not initialized');
+    }
+
+    // Delete any existing webhook first
+    await telegramBot.deleteWebHook();
+    logger.info('Deleted existing Telegram webhook');
+
+    // Set new webhook
+    const result = await telegramBot.setWebHook(webhookUrl);
+
+    if (result) {
+      logger.info('Telegram webhook set successfully', {
+        webhookUrl: webhookUrl
+      });
+
+      // Verify webhook info
+      const webhookInfo = await telegramBot.getWebHookInfo();
+      logger.info('Telegram webhook info', {
+        url: webhookInfo.url,
+        has_custom_certificate: webhookInfo.has_custom_certificate,
+        pending_update_count: webhookInfo.pending_update_count,
+        last_error_date: webhookInfo.last_error_date,
+        last_error_message: webhookInfo.last_error_message
+      });
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.error('Failed to setup Telegram webhook', {
+      error: error.message,
+      webhookUrl: webhookUrl
+    });
+    throw error;
+  }
+}
+
+/**
+ * Process webhook update
+ * @param {Object} update - Telegram update object from webhook
+ */
+function processWebhookUpdate(update) {
+  try {
+    if (!telegramBot) {
+      throw new Error('Telegram bot not initialized');
+    }
+
+    // Process the update through the bot instance
+    telegramBot.processUpdate(update);
+
+    logger.debug('Processed Telegram webhook update', {
+      updateId: update.update_id
+    });
+  } catch (error) {
+    logger.error('Error processing Telegram webhook update', {
+      error: error.message,
+      updateId: update?.update_id
+    });
+    throw error;
+  }
+}
+
+/**
  * Stop the Telegram bot (cleanup)
  */
 async function stopTelegramBot() {
   try {
-    if (telegramBot && config.nodeEnv === 'development') {
+    const usePolling = config.nodeEnv === 'development' ||
+                       process.env.TELEGRAM_USE_POLLING === 'true';
+
+    if (telegramBot && usePolling) {
       await telegramBot.stopPolling();
       logger.info('Telegram bot polling stopped');
+    } else if (telegramBot) {
+      // Delete webhook when stopping
+      await telegramBot.deleteWebHook();
+      logger.info('Telegram webhook deleted');
     }
   } catch (error) {
     logger.error('Error stopping Telegram bot', {
@@ -315,6 +397,8 @@ export {
   sendMessage,
   editMessage,
   createLeadActionKeyboard,
+  setupWebhook,
+  processWebhookUpdate,
   stopTelegramBot,
   getTelegramBot
 };
@@ -326,6 +410,8 @@ export default {
   sendMessage,
   editMessage,
   createLeadActionKeyboard,
+  setupWebhook,
+  processWebhookUpdate,
   stopTelegramBot,
   getTelegramBot
 };

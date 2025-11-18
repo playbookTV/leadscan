@@ -10,6 +10,7 @@ import keywordsRoutes from './routes/keywords.js'
 import analyticsRoutes from './routes/analytics.js'
 import settingsRoutes from './routes/settings.js'
 import emailRoutes from './routes/email.js'
+import telegramRoutes from './routes/telegram.js'
 
 const app = express()
 
@@ -39,6 +40,7 @@ app.use('/api/keywords', keywordsRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/email', emailRoutes)
+app.use('/api/telegram', telegramRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {
