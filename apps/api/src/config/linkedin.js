@@ -7,6 +7,7 @@ let rssParser = null;
 /**
  * Initialize RSS parser for LinkedIn feeds
  * LinkedIn doesn't provide public API access, so we use RSS feeds
+ * NOTE: LinkedIn RSS feeds are unreliable and often blocked
  */
 function initializeLinkedInParser() {
   try {
@@ -23,13 +24,24 @@ function initializeLinkedInParser() {
           ['content:encoded', 'contentEncoded']
         ]
       },
-      timeout: 10000, // 10 second timeout
+      timeout: 15000, // Increased to 15 second timeout
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; LeadFinder/1.0)'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br'
+      },
+      // Add XML parsing options for better error tolerance
+      xml2js: {
+        strict: false, // More lenient XML parsing
+        trim: true,
+        normalize: true,
+        normalizeTags: false,
+        explicitArray: false
       }
     });
 
-    logger.info('LinkedIn RSS parser initialized successfully');
+    logger.info('LinkedIn RSS parser initialized successfully (Note: LinkedIn RSS feeds may be unreliable)');
     return rssParser;
   } catch (error) {
     logger.error('Failed to initialize LinkedIn RSS parser', {
@@ -40,7 +52,7 @@ function initializeLinkedInParser() {
 }
 
 /**
- * Parse LinkedIn RSS feed
+ * Parse LinkedIn RSS feed with retry and better error handling
  * @param {string} feedUrl - The RSS feed URL to parse
  */
 async function parseLinkedInFeed(feedUrl) {
@@ -49,17 +61,55 @@ async function parseLinkedInFeed(feedUrl) {
       throw new Error('RSS parser not initialized');
     }
 
-    const feed = await rssParser.parseURL(feedUrl);
+    // LinkedIn RSS feeds are unreliable - add retry with exponential backoff
+    let lastError;
+    const maxRetries = 2;
 
-    logger.debug('LinkedIn RSS feed parsed successfully', {
-      feedTitle: feed.title,
-      itemCount: feed.items?.length || 0,
-      feedUrl: feedUrl
-    });
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const feed = await rssParser.parseURL(feedUrl);
 
-    return feed;
+        logger.debug('LinkedIn RSS feed parsed successfully', {
+          feedTitle: feed.title,
+          itemCount: feed.items?.length || 0,
+          feedUrl: feedUrl,
+          attempt: attempt
+        });
+
+        return feed;
+      } catch (error) {
+        lastError = error;
+
+        // Check if it's a parsing error (likely blocked or invalid response)
+        if (error.message.includes('Feed not recognized') ||
+            error.message.includes('Unquoted attribute') ||
+            error.message.includes('Invalid XML')) {
+          // LinkedIn likely blocking or returning HTML instead of RSS
+          logger.warn('LinkedIn RSS feed returned invalid response (likely blocked)', {
+            feedUrl: feedUrl,
+            error: error.message,
+            attempt: attempt
+          });
+          // Don't retry parsing errors - LinkedIn is blocking us
+          break;
+        }
+
+        // For network errors, wait before retry
+        if (attempt < maxRetries) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s
+          logger.debug(`Retrying LinkedIn feed in ${delay}ms`, {
+            feedUrl: feedUrl,
+            attempt: attempt
+          });
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    // If we got here, all retries failed
+    throw lastError;
   } catch (error) {
-    logger.error('Failed to parse LinkedIn RSS feed', {
+    logger.error('Failed to parse LinkedIn RSS feed after retries', {
       error: error.message,
       feedUrl: feedUrl
     });

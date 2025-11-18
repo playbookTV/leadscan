@@ -16,6 +16,7 @@ const DEFAULT_FEEDS = [
 
 /**
  * Poll LinkedIn RSS feeds for new posts
+ * NOTE: LinkedIn RSS feeds are unreliable and often blocked
  * @param {Array} keywords - Array of keyword objects from database
  * @returns {Array} Array of lead objects
  */
@@ -32,6 +33,10 @@ async function pollLinkedIn(keywords) {
   // Build feed list from keywords and defaults
   const feeds = buildFeedList(keywords);
 
+  let successfulFeeds = 0;
+  let blockedFeeds = 0;
+  let failedFeeds = 0;
+
   for (const feed of feeds) {
     try {
       const feedUrl = buildLinkedInFeedUrl(feed.type, feed.identifier);
@@ -41,27 +46,46 @@ async function pollLinkedIn(keywords) {
         const processedLeads = processLinkedInResults(feedData, feed, sinceTime);
         leads.push(...processedLeads);
 
-        logger.info('LinkedIn feed processed', {
+        successfulFeeds++;
+        logger.info('LinkedIn feed processed successfully', {
           feedType: feed.type,
           identifier: feed.identifier,
           itemsFound: feedData.items?.length || 0,
           leadsCreated: processedLeads.length
         });
+      } else {
+        // Feed returned null (blocked or error)
+        blockedFeeds++;
       }
     } catch (error) {
+      failedFeeds++;
       logger.error('Failed to process LinkedIn feed', {
         error: error.message,
         feedType: feed.type,
         identifier: feed.identifier
       });
-      // Continue with other feeds
+      // Continue with other feeds - don't let one failure stop everything
     }
   }
 
-  logger.info('LinkedIn polling completed', {
-    feedsProcessed: feeds.length,
-    totalLeads: leads.length
-  });
+  // Log comprehensive summary
+  const totalFeeds = feeds.length;
+  if (blockedFeeds > 0 || failedFeeds > 0) {
+    logger.warn('LinkedIn polling completed with issues', {
+      totalFeeds: totalFeeds,
+      successfulFeeds: successfulFeeds,
+      blockedFeeds: blockedFeeds,
+      failedFeeds: failedFeeds,
+      totalLeads: leads.length,
+      note: 'LinkedIn RSS feeds are unreliable. Consider using LinkedIn API or alternative data sources.'
+    });
+  } else {
+    logger.info('LinkedIn polling completed successfully', {
+      totalFeeds: totalFeeds,
+      successfulFeeds: successfulFeeds,
+      totalLeads: leads.length
+    });
+  }
 
   return leads;
 }
@@ -111,7 +135,7 @@ function buildFeedList(keywords) {
 }
 
 /**
- * Parse a LinkedIn RSS feed
+ * Parse a LinkedIn RSS feed with robust error handling
  * @param {string} feedUrl - RSS feed URL
  * @param {Object} keyword - Associated keyword object
  */
@@ -127,18 +151,49 @@ async function parseFeed(feedUrl, keyword) {
 
     return feedData;
   } catch (error) {
-    // RSS feeds might be blocked or require authentication
-    if (error.message.includes('403') || error.message.includes('401')) {
-      logger.debug('LinkedIn RSS feed access denied (expected for some feeds)', {
+    // Categorize errors and handle appropriately
+    const errorMsg = error.message || '';
+
+    // Authentication/Access errors (expected)
+    if (errorMsg.includes('403') || errorMsg.includes('401') || errorMsg.includes('Forbidden')) {
+      logger.debug('LinkedIn RSS feed access denied (expected - feeds require authentication)', {
         feedUrl: feedUrl,
-        error: error.message
+        error: errorMsg
       });
-    } else {
-      logger.error('Failed to parse LinkedIn RSS feed', {
-        feedUrl: feedUrl,
-        error: error.message
-      });
+      return null;
     }
+
+    // Parsing errors (LinkedIn blocking or returning HTML)
+    if (errorMsg.includes('Feed not recognized') ||
+        errorMsg.includes('Unquoted attribute') ||
+        errorMsg.includes('Invalid XML') ||
+        errorMsg.includes('Non-whitespace')) {
+      logger.warn('LinkedIn RSS feed returned invalid format (likely blocked by LinkedIn)', {
+        feedUrl: feedUrl,
+        error: errorMsg,
+        note: 'LinkedIn may be blocking automated RSS access. Consider using LinkedIn API or reducing polling frequency.'
+      });
+      return null;
+    }
+
+    // Network errors
+    if (errorMsg.includes('timeout') ||
+        errorMsg.includes('ECONNREFUSED') ||
+        errorMsg.includes('ETIMEDOUT') ||
+        errorMsg.includes('ENOTFOUND')) {
+      logger.warn('LinkedIn RSS feed network error', {
+        feedUrl: feedUrl,
+        error: errorMsg
+      });
+      return null;
+    }
+
+    // Unknown errors
+    logger.error('Failed to parse LinkedIn RSS feed - unknown error', {
+      feedUrl: feedUrl,
+      error: errorMsg,
+      errorType: error.constructor.name
+    });
     return null;
   }
 }
