@@ -51,5 +51,8 @@ function getDatabase() {
   return supabaseClient;
 }
 
+// Initialize database immediately when module is imported
+const db = initializeDatabase();
+
 export { initializeDatabase, testDatabaseConnection, getDatabase };
-export default { initializeDatabase, testDatabaseConnection, getDatabase };
+export default db;

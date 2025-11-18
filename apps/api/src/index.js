@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import config from './config/env.js';
 import logger from './utils/logger.js';
 import { initializeDatabase, testDatabaseConnection } from './config/database.js';
+import app from './server.js';
 import { initializeTwitterClient, testTwitterConnection } from './config/twitter.js';
 import { initializeLinkedInParser, testLinkedInConnection } from './config/linkedin.js';
 import { initializeOpenAIClient, testOpenAIConnection } from './config/openai.js';
@@ -110,49 +111,49 @@ function startCronScheduler() {
 }
 
 /**
- * Start health check HTTP server
+ * Start Express API server
  */
-function startHealthCheckServer() {
+function startExpressServer() {
   const port = config.port || 3000;
 
-  healthServer = http.createServer(async (req, res) => {
-    if (req.url === '/health' || req.url === '/') {
-      const stats = getPollingStats();
-      const health = {
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: Math.round(process.uptime()),
-        lastPoll: stats.lastPollTime ? getTimeAgo(stats.lastPollTime) : 'Never',
-        isPolling: stats.isPolling,
-        statistics: {
-          totalPolls: stats.totalPolls,
-          totalLeadsFound: stats.totalLeadsFound,
-          totalNotificationsSent: stats.totalNotificationsSent,
-          totalApiCost: `$${stats.totalApiCost.toFixed(4)}`
-        },
-        memory: {
-          used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
-          total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
-        }
-      };
-
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(health, null, 2));
-    } else if (req.url === '/stats') {
-      const stats = getPollingStats();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(stats, null, 2));
-    } else {
-      res.writeHead(404, { 'Content-Type': 'text/plain' });
-      res.end('Not Found');
-    }
+  // Add health check route to Express app
+  app.get('/health', async (req, res) => {
+    const stats = getPollingStats();
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      uptime: Math.round(process.uptime()),
+      lastPoll: stats.lastPollTime ? getTimeAgo(stats.lastPollTime) : 'Never',
+      isPolling: stats.isPolling,
+      statistics: {
+        totalPolls: stats.totalPolls,
+        totalLeadsFound: stats.totalLeadsFound,
+        totalNotificationsSent: stats.totalNotificationsSent,
+        totalApiCost: `$${stats.totalApiCost.toFixed(4)}`
+      },
+      memory: {
+        used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
+        total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB'
+      }
+    };
+    res.json(health);
   });
 
-  healthServer.listen(port, () => {
-    logger.info(`Health check server listening on port ${port}`, {
+  // Add stats route
+  app.get('/stats', async (req, res) => {
+    const stats = getPollingStats();
+    res.json(stats);
+  });
+
+  healthServer = app.listen(port, () => {
+    logger.info(`Express API server listening on port ${port}`, {
       endpoints: [
         `http://localhost:${port}/health`,
-        `http://localhost:${port}/stats`
+        `http://localhost:${port}/stats`,
+        `http://localhost:${port}/api/leads`,
+        `http://localhost:${port}/api/keywords`,
+        `http://localhost:${port}/api/analytics`,
+        `http://localhost:${port}/api/settings`
       ]
     });
   });
@@ -193,8 +194,8 @@ async function startApplication() {
     // Start cron scheduler
     startCronScheduler();
 
-    // Start health check server
-    startHealthCheckServer();
+    // Start Express API server
+    startExpressServer();
 
     // Log configuration (without sensitive data)
     logger.info('Configuration loaded', {
@@ -261,9 +262,9 @@ async function shutdown(signal) {
     logger.info('Stopping Telegram bot...');
     await stopTelegramBot();
 
-    // Close health check server
+    // Close Express API server
     if (healthServer) {
-      logger.info('Closing health check server...');
+      logger.info('Closing Express API server...');
       healthServer.close();
     }
 

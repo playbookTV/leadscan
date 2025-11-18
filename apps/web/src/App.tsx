@@ -1,61 +1,43 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/contexts/AuthContext'
-import LoginPage from '@/pages/LoginPage'
-import DashboardLayout from '@/components/layouts/DashboardLayout'
-import DashboardHome from '@/pages/DashboardHome'
-import LeadsPage from '@/pages/LeadsPage'
-import LeadDetailPage from '@/pages/LeadDetailPage'
-import AnalyticsPage from '@/pages/AnalyticsPage'
-import KeywordsPage from '@/pages/KeywordsPage'
-import TemplatesPage from '@/pages/TemplatesPage'
-import SettingsPage from '@/pages/SettingsPage'
+import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 
-function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+import { Layout } from './components/layout/Layout';
+import { Dashboard } from './pages/Dashboard';
+import { Leads } from './pages/Leads';
+import { LeadDetail } from './pages/LeadDetail';
+import { Analytics } from './pages/Analytics';
+import { Keywords } from './pages/Keywords';
+import { Settings } from './pages/Settings';
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    )
-  }
-
-  return user ? <>{children}</> : <Navigate to="/login" />
-}
-
-function AppRoutes() {
-  return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route
-        path="/*"
-        element={
-          <PrivateRoute>
-            <DashboardLayout>
-              <Routes>
-                <Route path="/" element={<DashboardHome />} />
-                <Route path="/leads" element={<LeadsPage />} />
-                <Route path="/leads/:id" element={<LeadDetailPage />} />
-                <Route path="/analytics" element={<AnalyticsPage />} />
-                <Route path="/keywords" element={<KeywordsPage />} />
-                <Route path="/templates" element={<TemplatesPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-              </Routes>
-            </DashboardLayout>
-          </PrivateRoute>
-        }
-      />
-    </Routes>
-  )
-}
+// Create a client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 30 * 1000, // 30 seconds
+    },
+  },
+});
 
 function App() {
   return (
-    <AuthProvider>
-      <AppRoutes />
-    </AuthProvider>
-  )
+    <QueryClientProvider client={queryClient}>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          <Route index element={<Dashboard />} />
+          <Route path="leads" element={<Leads />} />
+          <Route path="leads/:id" element={<LeadDetail />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="keywords" element={<Keywords />} />
+          <Route path="settings" element={<Settings />} />
+        </Route>
+      </Routes>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
 }
 
-export default App
+export default App;
