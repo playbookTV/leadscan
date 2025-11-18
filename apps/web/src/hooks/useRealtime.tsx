@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
@@ -28,7 +28,6 @@ export function useRealtime() {
 
     // Connection event handlers
     socket.on('connect', () => {
-      console.log('✅ Connected to real-time server');
       reconnectAttempts.current = 0;
 
       // Subscribe to lead updates
@@ -42,16 +41,13 @@ export function useRealtime() {
     });
 
     socket.on('disconnect', (reason) => {
-      console.log('❌ Disconnected from real-time server:', reason);
-
       if (reason === 'io server disconnect') {
         // Server disconnected, try to reconnect
         socket.connect();
       }
     });
 
-    socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+    socket.on('connect_error', () => {
       reconnectAttempts.current++;
 
       if (reconnectAttempts.current === maxReconnectAttempts) {
@@ -64,14 +60,13 @@ export function useRealtime() {
     });
 
     // Subscription confirmation
-    socket.on('subscription-confirmed', ({ channel, timestamp }) => {
-      console.log(`Subscribed to ${channel} at ${timestamp}`);
+    socket.on('subscription-confirmed', () => {
+      // Subscription confirmed silently
     });
 
     // Handle new lead notifications
     socket.on('new-lead', (notification: any) => {
       const lead = notification.data;
-      console.log('🔔 New lead received:', lead);
 
       // Determine notification style based on score
       const score = lead.final_score || lead.score;
@@ -124,8 +119,7 @@ export function useRealtime() {
 
     // Handle lead updates
     socket.on('lead-updated', (notification: any) => {
-      const { leadId, updates } = notification.data;
-      console.log(`Lead ${leadId} updated:`, updates);
+      const { leadId } = notification.data;
 
       // Invalidate lead-specific queries
       queryClient.invalidateQueries({ queryKey: ['lead', leadId] });
@@ -134,8 +128,7 @@ export function useRealtime() {
 
     // Handle lead status changes
     socket.on('lead-status-changed', (notification: any) => {
-      const { leadId, oldStatus, newStatus } = notification.data;
-      console.log(`Lead ${leadId} status changed: ${oldStatus} → ${newStatus}`);
+      const { leadId, newStatus } = notification.data;
 
       let message = `Lead status updated to ${newStatus}`;
       let icon = <Bell className="w-4 h-4" />;
@@ -174,8 +167,6 @@ export function useRealtime() {
 
     // Handle user notifications (for future multi-user support)
     socket.on('notification', (notification: any) => {
-      console.log('User notification:', notification);
-
       toast.info(notification.title || 'Notification', {
         description: notification.message,
         duration: 8000
@@ -189,8 +180,8 @@ export function useRealtime() {
       }
     }, 30000); // Ping every 30 seconds
 
-    socket.on('pong', ({ timestamp }) => {
-      console.log('Pong received, latency:', Date.now() - timestamp, 'ms');
+    socket.on('pong', () => {
+      // Pong received - connection alive
     });
 
     // Cleanup on unmount
@@ -230,7 +221,7 @@ function playNotificationSound() {
 
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.2);
-  } catch (error) {
-    console.error('Failed to play notification sound:', error);
+  } catch {
+    // Failed to play notification sound - silently ignore
   }
 }

@@ -33,10 +33,8 @@ function AppContent() {
 
   // Initialize browser notifications
   useEffect(() => {
-    initializeNotifications().then((enabled) => {
-      if (enabled) {
-        console.log('Browser notifications enabled');
-      }
+    initializeNotifications().then(() => {
+      // Notifications initialized
     });
   }, []);
 

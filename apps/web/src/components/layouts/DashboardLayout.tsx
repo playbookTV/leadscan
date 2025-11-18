@@ -39,8 +39,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const handleSignOut = async () => {
     try {
       await signOut()
-    } catch (error) {
-      console.error('Error signing out:', error)
+    } catch {
+      // Error signing out - silently handled
     }
   }
 
