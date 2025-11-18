@@ -18,7 +18,9 @@ async function pollTwitter(keywords) {
   const sinceTime = new Date(Date.now() - config.polling.intervalMinutes * 60 * 1000);
 
   for (const keyword of keywords) {
-    if (!keyword.is_active || keyword.platform !== 'twitter') {
+    // Skip inactive keywords or keywords explicitly set to a different platform
+    // NULL platform means "all platforms", so those should be included
+    if (!keyword.is_active || (keyword.platform && keyword.platform !== 'twitter')) {
       continue;
     }
 
@@ -42,7 +44,7 @@ async function pollTwitter(keywords) {
   }
 
   logger.info('Twitter polling completed', {
-    keywordsSearched: keywords.filter(k => k.platform === 'twitter' && k.is_active).length,
+    keywordsSearched: keywords.filter(k => (!k.platform || k.platform === 'twitter') && k.is_active).length,
     totalLeads: leads.length
   });
 

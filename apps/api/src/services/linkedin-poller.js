@@ -99,7 +99,9 @@ function buildFeedList(keywords) {
 
   // Add keyword-based feeds
   for (const keyword of keywords) {
-    if (!keyword.is_active || keyword.platform !== 'linkedin') {
+    // Skip inactive keywords or keywords explicitly set to a different platform
+    // NULL platform means "all platforms", so those should be included
+    if (!keyword.is_active || (keyword.platform && keyword.platform !== 'linkedin')) {
       continue;
     }
 

@@ -53,8 +53,9 @@ async function pollAllPlatforms() {
 
     logger.info('Active keywords loaded', {
       total: keywords.length,
-      twitter: keywords.filter(k => k.platform === 'twitter').length,
-      linkedin: keywords.filter(k => k.platform === 'linkedin').length
+      twitter: keywords.filter(k => !k.platform || k.platform === 'twitter').length,
+      linkedin: keywords.filter(k => !k.platform || k.platform === 'linkedin').length,
+      allPlatforms: keywords.filter(k => !k.platform).length
     });
 
     // Poll platforms in parallel
