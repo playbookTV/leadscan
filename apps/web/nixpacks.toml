@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install -g pnpm@10.22.0", "pnpm install --frozen-lockfile --filter @leadscout/web..."]
+cmds = ["npm install -g pnpm@10.22.0", "pnpm install --no-frozen-lockfile --filter @leadscout/web..."]
 
 [phases.build]
 cmds = ["cd apps/web && pnpm build"]
