@@ -349,8 +349,8 @@ platform VARCHAR(20) NOT NULL CHECK (platform IN ('twitter', 'linkedin', 'reddit
 3. Fill in:
    - **Name**: Leadscout
    - **Type**: Script
-   - **Description**: Automated lead generation
-   - **Redirect URI**: http://localhost:8080/reddit/callback
+   - **Description**: Automated lead generation for Ovalay Studios
+   - **Redirect URI**: https://leadscoutapi-production.up.railway.app/reddit/callback
 4. Save and note `client_id` and `client_secret`
 
 ### 2. Get Refresh Token
