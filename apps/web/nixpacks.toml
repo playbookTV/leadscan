@@ -8,4 +8,4 @@ cmds = ["npm install -g pnpm@10.22.0", "pnpm install --no-frozen-lockfile --filt
 cmds = ["cd apps/web && pnpm build"]
 
 [start]
-cmd = "npx serve -s apps/web/dist -l $PORT"
+cmd = "cd apps/web && pnpm start"
