@@ -4,263 +4,185 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Ovalay Lead Finder** - An automated lead generation system that monitors Twitter and LinkedIn 24/7 for web development project opportunities. The system scores leads, sends instant Telegram notifications, and tracks conversions.
+**Leadscout** - Automated lead generation system for Ovalay Studios that monitors Twitter and LinkedIn for web development opportunities. The system scores leads using AI, sends Telegram notifications, and provides a React dashboard for management.
 
-**Status**: Pre-development (no code implemented yet)
+**Architecture**: pnpm monorepo with backend API (Node.js) and frontend dashboard (React + Vite)
+**Status**: Core engine implemented (Phase 2 complete), frontend in progress
 **Target Launch**: Q1 2026
 
-## Current Implementation Status
+## Monorepo Structure
 
-### ✅ Completed
-- **Documentation & Planning**
-  - [CLAUDE.md](CLAUDE.md) - Comprehensive guidance for Claude Code sessions
-  - [AGENTS.md](AGENTS.md) - Architecture summary and build guidelines
-  - [Doc/Project-Doc.md](Doc/Project-Doc.md) - Complete PRD and technical specification
-  - [.mcp.json](.mcp.json) - HeySol MCP server configuration for persistent memory
-  - [.cursor/rules/codacy.mdc](.cursor/rules/codacy.mdc) - Codacy integration rules
-  - [.env.example](.env.example) - Environment variables template
-  - [.gitignore](.gitignore) - Git ignore patterns
+This is a **pnpm workspace monorepo** with the following workspaces:
 
-- **Initial Implementation**
-  - [package.json](package.json) - Dependencies and npm scripts configured
-  - [src/index.js](src/index.js) - Application entry point with graceful shutdown
-  - [src/config/env.js](src/config/env.js) - Environment configuration loader
-  - [src/config/database.js](src/config/database.js) - Supabase client initialization
-  - [src/utils/logger.js](src/utils/logger.js) - Winston logger setup
-
-### 🚧 In Progress
-- Supabase database schema creation
-- API client configurations (Twitter, LinkedIn, OpenAI, Telegram)
-- Core services implementation
-
-### ⏳ Not Yet Implemented
-- Polling service and cron jobs
-- Platform-specific pollers (Twitter, LinkedIn)
-- Lead scoring algorithms (quick score + AI analysis)
-- Notification service (Telegram integration)
-- Analytics and reporting
-- Railway deployment configuration
-- Database migrations tooling
-- Test suite
-
-**Current Phase**: Initial infrastructure complete, building core services
+```
+leadscout-monorepo/
+├── apps/
+│   ├── api/              # @leadscout/api - Backend service (Node.js)
+│   └── web/              # @leadscout/web - Frontend dashboard (React + Vite)
+└── packages/
+    └── types/            # @leadscout/types - Shared TypeScript types
+```
 
 ## Build/Lint/Test Commands
 
-**Package Manager**: This project uses **pnpm** (not npm)
+**Package Manager**: This project uses **pnpm workspaces** (NOT npm or yarn)
 
-### Essential Commands
+### Root-Level Commands
+
 ```bash
-pnpm install              # Install dependencies
-pnpm start                # Start the polling service (production)
-pnpm run dev              # Development mode with hot reload via nodemon
-pnpm test                 # Run tests (not yet implemented)
+# Install all workspace dependencies
+pnpm install
+
+# Run both API and Web dev servers in parallel
+pnpm dev
+
+# Run individual workspace dev servers
+pnpm dev:api              # Backend only (port 3000)
+pnpm dev:web              # Frontend only (port 5173)
+
+# Production builds
+pnpm build:web            # Build frontend for production
+pnpm start:api            # Start backend in production mode
+
+# Build all workspaces
+pnpm build
+
+# Clean all node_modules and dist folders
+pnpm clean
 ```
 
-### Planned Commands (not yet implemented)
-- `pnpm run db:migrate` - Run database migrations
-- `pnpm run lint` - Run ESLint
-- `pnpm run test:watch` - Run tests in watch mode
+### Workspace-Specific Commands
+
+```bash
+# Run command in specific workspace
+pnpm --filter @leadscout/api <command>
+pnpm --filter @leadscout/web <command>
+pnpm --filter @leadscout/types <command>
+
+# Examples:
+pnpm --filter @leadscout/api run dev
+pnpm --filter @leadscout/web run build
+```
+
+### Backend (apps/api)
+
+```bash
+cd apps/api
+pnpm start                # Production mode (node src/index.js)
+pnpm dev                  # Development with --watch flag
+pnpm test                 # Run Node.js native tests
+```
+
+### Frontend (apps/web)
+
+```bash
+cd apps/web
+pnpm dev                  # Start Vite dev server (port 5173)
+pnpm build                # Build for production
+pnpm preview              # Preview production build
+```
 
 ## High-Level Architecture
 
 ### System Design
 
 ```
-External APIs (Twitter, LinkedIn, OpenAI, Telegram)
-          ↓
-Railway-hosted Node.js Polling Service (runs every 30 minutes)
-          ↓
-  ┌───────┴────────┐
-  ↓                ↓
-Platform Pollers → Lead Processor (deduplication, scoring, AI analysis)
-          ↓
-Notification Service (Telegram alerts)
-          ↓
-Supabase PostgreSQL Database
+User ──────────────────────────┐
+                               ↓
+                    Frontend Dashboard (React)
+                               ↓
+                          Supabase
+                               ↑
+                          Backend API
+                               ↑
+            ┌──────────────────┴─────────────────┐
+            ↓                  ↓                  ↓
+     Twitter API         LinkedIn RSS        OpenAI API
+            ↓                  ↓                  ↓
+         Polling → Lead Scoring → Telegram Notifications
 ```
 
-### Core Components
+### Core Data Flow
 
-1. **Polling Service** (Node.js, Railway)
-   - Cron scheduler: runs every 30 minutes
-   - Platform pollers: Twitter and LinkedIn API integration
-   - Runs 24/7 with auto-restart on failure
-
-2. **Lead Processor**
-   - **Stage 1**: Quick regex-based scoring (0-10 scale)
-   - **Stage 2**: AI analysis via OpenAI (only for quick_score ≥ 5)
-   - Deduplication: checks by post_id and text similarity
-   - Extraction: budget, timeline, technologies, project type
-
-3. **Notification Service**
-   - Sends Telegram alerts for leads scoring ≥ 8
-   - Inline buttons: "Contacted", "Remind Later", "Skip", "Review Later"
-   - Direct links to post and author profile
-
-4. **Database** (Supabase PostgreSQL)
-   - `leads` - All discovered opportunities with scores, status, metadata
-   - `oauth_tokens` - Twitter/LinkedIn tokens (encrypted at rest)
-   - `keywords` - Search terms with performance metrics
-   - `polling_logs` - Execution history and system health
-   - `notifications` - Delivery tracking and engagement
-   - `user_actions` - Button clicks and status updates
+**Lead Discovery & Scoring Pipeline**:
+1. **Cron trigger** (every 30 minutes) → fetch keywords from database
+2. **Platform pollers** query Twitter API + LinkedIn RSS in parallel
+3. **Deduplication** checks post_id and text similarity (80% threshold)
+4. **Stage 1 scoring** (regex-based, 0-10 scale) - fast pre-filter
+5. **Stage 2 scoring** (AI analysis via GPT-4o-mini, only if quick_score ≥ 5)
+6. **Combined score** = 30% quick score + 70% AI score
+7. **Save to database** (all leads saved, regardless of score)
+8. **Send notification** if final score ≥ 8 (Telegram with action buttons)
+9. **Log results** to polling_logs table
 
 ### Tech Stack
 
-- **Runtime**: Node.js 20.x (minimum required: >=20.0.0)
-- **Language**: JavaScript with ES Modules (`"type": "module"`)
-- **Package Manager**: pnpm (not npm or yarn)
-- **Hosting**: Railway (planned)
-- **Database**: Supabase (PostgreSQL 15)
+**Backend** (`apps/api`):
+- Runtime: Node.js >=20.0.0
+- Language: JavaScript ES Modules (`.js` extensions required in imports)
+- Database: Supabase PostgreSQL via `@supabase/supabase-js`
+- APIs: `twitter-api-v2`, `rss-parser`, `openai`, `node-telegram-bot-api`
+- Scheduling: `node-cron` (runs every 30 minutes)
+- Logging: `winston` (structured JSON logs)
+- Health Check: HTTP endpoint on port 3000 (`/health`, `/stats`)
 
-**Dependencies** (installed):
-- `@supabase/supabase-js` ^2.39.0 - Supabase client
-- `twitter-api-v2` ^1.15.2 - Twitter API integration
-- `axios` ^1.6.2 - HTTP client for LinkedIn/general API calls
-- `openai` ^4.20.1 - OpenAI API for lead analysis
-- `node-telegram-bot-api` ^0.64.0 - Telegram notifications
-- `node-cron` ^3.0.3 - Cron job scheduling
-- `rss-parser` ^3.13.0 - LinkedIn RSS feed parsing
-- `winston` ^3.11.0 - Structured logging
-- `dotenv` ^16.3.1 - Environment variable management
-- `nodemon` ^3.0.2 (dev) - Auto-restart during development
+**Frontend** (`apps/web`):
+- Framework: React 18 with TypeScript
+- Build Tool: Vite 5
+- UI Library: HeroUI (NextUI-based component library)
+- Routing: `react-router-dom` v6
+- Charts: `recharts`
+- Database: Direct Supabase client for real-time queries
+- Styling: TailwindCSS + PostCSS
 
-### Key Data Flows
+**Shared** (`packages/types`):
+- TypeScript type definitions shared between API and Web
+- Exports: `Lead`, `Keyword`, `PollingLog`, `Notification`, `UserAction`
 
-**Lead Discovery Flow**:
-1. Cron triggers polling every 30 minutes
-2. Fetch posts from Twitter/LinkedIn APIs using keywords
-3. Check for duplicates (post_id + text similarity)
-4. Calculate quick_score (regex patterns)
-5. If quick_score ≥ 5: run AI analysis with OpenAI
-6. Combine scores → final score (0-10)
-7. Save to `leads` table
-8. If score ≥ 8: send Telegram notification
-
-**Scoring Algorithm**:
-- Budget mentioned: +3 points
-- Urgency signals: +2 points
-- Timeline mentioned: +1 point
-- Contact method provided: +2 points
-- Technology match: +1-2 points
-- Project type clarity: +1 point
-- Red flags (free, unpaid, equity-only): -2 to -4 points
-
-**AI Analysis** (GPT-4o-mini):
-- Input: post_text
-- Output: score (0-5), summary, projectType, estimatedBudget, timeline, technologies, redFlags, reasoning
-- Cost control: only runs for quick_score ≥ 5, max $2/day budget
-
-## File Structure
+### Backend Service Architecture (`apps/api/src`)
 
 ```
-leadscan/
-├── src/
-│   ├── index.js              # Main entry, cron setup, health check
-│   ├── config/
-│   │   ├── database.js       # Supabase client
-│   │   ├── twitter.js        # Twitter API client
-│   │   ├── linkedin.js       # LinkedIn API client
-│   │   └── openai.js         # OpenAI client
-│   ├── services/
-│   │   ├── polling.js        # Main polling orchestrator
-│   │   ├── twitter-poller.js # Twitter-specific polling
-│   │   ├── linkedin-poller.js# LinkedIn-specific polling
-│   │   ├── lead-scorer.js    # Scoring algorithms
-│   │   ├── notifier.js       # Telegram notifications
-│   │   └── analytics.js      # Performance tracking
-│   ├── utils/
-│   │   ├── logger.js         # Winston logger
-│   │   ├── errors.js         # Error handling
-│   │   └── helpers.js        # Utility functions
-│   └── cron/
-│       └── jobs.js           # Cron job definitions
-├── Doc/
-│   └── Project-Doc.md        # Complete PRD and technical spec
-├── AGENTS.md                 # Build/architecture summary
-├── CLAUDE.md                 # This file
-├── .env.example
-├── package.json
-└── railway.json
+src/
+├── index.js                    # Entry point: HTTP server, cron scheduler, graceful shutdown
+├── config/
+│   ├── env.js                  # Environment variables (dotenv loader)
+│   ├── database.js             # Supabase client initialization
+│   ├── twitter.js              # Twitter API v2 client (OAuth Bearer Token)
+│   ├── linkedin.js             # RSS parser for LinkedIn feeds
+│   ├── openai.js               # OpenAI client with cost tracking ($2/day limit)
+│   └── telegram.js             # Telegram bot (polling mode, callback handlers)
+├── services/
+│   ├── polling.js              # Main orchestrator: keyword fetch → poll → score → notify
+│   ├── twitter-poller.js       # Twitter search with rate limiting
+│   ├── linkedin-poller.js      # LinkedIn RSS feed parsing
+│   ├── lead-scorer.js          # Two-stage scoring + deduplication
+│   └── notifier.js             # Telegram notifications with inline keyboards
+└── utils/
+    ├── logger.js               # Winston logger configuration
+    └── helpers.js              # Utilities: budget extraction, tech detection, retry logic
 ```
 
-## MCP Server: HeySol Memory & Context
-
-**CRITICAL**: This project uses the HeySol MCP server for persistent memory and context across Claude Code sessions.
-
-### Configuration
-- **MCP Server**: HeySol (https://core.heysol.ai/api/v1/mcp?source=claude)
-- **Purpose**: Store and retrieve project context, decisions, and important information
-- **Authentication**: Uses `HEYSOL_API_KEY` from `.env` file
-- **Configuration File**: `.mcp.json` (checked into version control)
-
-### When to Use HeySol MCP
-
-**MUST use HeySol MCP tools in these situations:**
-
-1. **At the start of EVERY session**: Retrieve stored context about project state, recent decisions, and pending tasks
-2. **After making important decisions**: Store architectural choices, API integrations, scoring algorithm changes
-3. **When completing major milestones**: Save progress on features, database schema updates, deployment configs
-4. **After debugging critical issues**: Record root causes, fixes applied, and lessons learned
-5. **Before ending a session**: Store current state, next steps, and any blockers
-
-### What to Store in HeySol
-
-- Project configuration decisions (API keys needed, service selections)
-- Database schema changes and migration history
-- Scoring algorithm tuning results (what worked, what didn't)
-- API integration learnings (rate limits encountered, authentication issues)
-- Performance optimizations applied
-- Testing results and known issues
-- Deployment configurations and Railway setup
-- Keyword performance metrics and tuning decisions
-
-### Example Memory Entries
+### Frontend Dashboard Architecture (`apps/web/src`)
 
 ```
-- "Twitter API integration complete with rate limiting, using twitter-api-v2 v1.15.0"
-- "Lead scoring algorithm: quick_score threshold set to 5, AI analysis for score ≥ 5"
-- "Supabase schema created with 6 tables, indexes on post_id and created_at"
-- "HeySol MCP configured for persistent context storage across sessions"
+src/
+├── main.tsx                    # Vite entry point
+├── App.tsx                     # Root component with routing
+├── pages/                      # Route-level components
+│   ├── Dashboard.tsx           # Main dashboard with stats
+│   ├── Leads.tsx               # Lead list with filtering
+│   ├── Analytics.tsx           # Performance metrics
+│   ├── Keywords.tsx            # Keyword management
+│   └── Settings.tsx            # Configuration
+├── components/                 # Reusable UI components
+├── contexts/                   # React context providers
+└── lib/
+    └── supabase.ts             # Supabase client configuration
 ```
-
-## Code Style Guidelines
-
-- **Language**: JavaScript with ES Modules (`import`/`export`)
-- **Naming**:
-  - camelCase for variables and functions
-  - UPPER_SNAKE_CASE for constants
-- **Error Handling**:
-  - Use winston for all logging
-  - Graceful API rate limit handling with exponential backoff
-  - Never expose API keys or tokens in logs/errors
-- **Security**:
-  - NEVER log secrets, tokens, or API keys
-  - Store OAuth tokens encrypted at rest
-  - Sanitize stack traces before logging
-  - Respect platform rate limits
-- **Comments**: Minimal - code should be self-documenting
-- **Dependencies**: Use npm for package management
-
-## Critical: Codacy Integration
-
-**IMPORTANT**: This project uses Codacy for code quality and security analysis.
-
-### After ANY file edit:
-- MUST immediately run `codacy_cli_analyze` on edited files
-- If issues found, propose and apply fixes
-- Do not proceed until issues are resolved
-
-### After installing dependencies:
-- MUST run `codacy_cli_analyze` with `tool="trivy"` for security scanning
-- If vulnerabilities found, stop and fix before continuing
-
-See [.cursor/rules/codacy.mdc](.cursor/rules/codacy.mdc) for complete Codacy rules.
 
 ## Environment Variables
 
-Required environment variables (local: `.env` file, production: Railway dashboard):
+### Backend (`apps/api/.env`)
 
 ```bash
 # HeySol MCP (for Claude Code persistent memory)
@@ -291,35 +213,214 @@ TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
 TELEGRAM_CHAT_ID=123456789
 
 # App Config
+NODE_ENV=development
+PORT=3000
 POLLING_INTERVAL_MINUTES=30
 MIN_NOTIFICATION_SCORE=8
 ENABLE_AI_ANALYSIS=true
 AI_MIN_SCORE_THRESHOLD=5
 ```
 
-## API Rate Limits & Constraints
+### Frontend (`apps/web/.env`)
 
-- **Twitter API**: 450 requests per 15-min window, 500k tweets/month (free tier)
-- **LinkedIn API**: 100 requests/day for search (very restrictive - may use RSS fallback)
-- **OpenAI API**: 10k requests/min, track costs in database
-- **Telegram Bot**: 30 messages/second per chat
+```bash
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGc...
+VITE_API_URL=http://localhost:3000
+```
+
+## Development Workflow
+
+### Initial Setup
+
+1. **Install pnpm** (if not already installed):
+   ```bash
+   npm install -g pnpm@10.22.0
+   ```
+
+2. **Install all dependencies**:
+   ```bash
+   pnpm install              # Installs for all workspaces
+   ```
+
+3. **Configure environment**:
+   ```bash
+   # Backend
+   cp apps/api/.env.example apps/api/.env
+   # Edit apps/api/.env with your API keys
+
+   # Frontend
+   cp apps/web/.env.example apps/web/.env
+   # Edit apps/web/.env with Supabase URL and anon key
+   ```
+
+4. **Verify Node version**:
+   ```bash
+   node --version            # Must be >= 20.0.0
+   pnpm --version            # Must be >= 8.0.0
+   ```
+
+### Daily Development
+
+**Run both frontend and backend**:
+```bash
+pnpm dev                  # Runs both in parallel
+```
+
+**Run separately** (useful for debugging):
+```bash
+# Terminal 1: Backend
+pnpm dev:api
+
+# Terminal 2: Frontend
+pnpm dev:web
+```
+
+**Access points**:
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:3000
+- Health check: http://localhost:3000/health
+- Stats endpoint: http://localhost:3000/stats
+
+### Implementation Patterns
+
+**Backend (JavaScript ES Modules)**:
+- All imports MUST include `.js` extension: `import logger from './utils/logger.js'`
+- Configuration centralized in `apps/api/src/config/env.js`
+- Logging: Use winston logger, NEVER `console.log`
+- Error handling: Use `retryWithBackoff()` for API calls, graceful degradation
+- Database: Supabase client from `apps/api/src/config/database.js`
+
+**Frontend (TypeScript + React)**:
+- Use TypeScript for all new files (`.tsx` for components, `.ts` for utilities)
+- Import shared types from `@leadscout/types`
+- Components: Functional components with hooks
+- Styling: TailwindCSS utility classes
+- State: React Context for global state, local useState for component state
+- Data fetching: Supabase client with real-time subscriptions
+
+**Shared Types** (`packages/types`):
+- Define all database models and API contracts here
+- Export from `packages/types/src/index.ts`
+- Import in API: `import type { Lead } from '@leadscout/types'`
+- Import in Web: `import type { Lead } from '@leadscout/types'`
+
+## Scoring Algorithm
+
+### Stage 1: Quick Regex Scoring (0-10)
+- Budget mentioned: +3 points
+- Urgency signals ("ASAP", "urgent"): +2 points
+- Timeline mentioned: +1 point
+- Contact method provided: +2 points
+- Technology match (React, Node.js, etc.): +1-2 points
+- Project type clarity: +1 point
+- Red flags ("free", "unpaid", "equity only"): -2 to -4 points
+
+### Stage 2: AI Analysis (GPT-4o-mini)
+- Only runs if quick_score ≥ 5 (cost optimization)
+- Prompt extracts: score (0-5), summary, projectType, estimatedBudget, timeline, technologies, redFlags, reasoning
+- Cost tracking: logs per-analysis cost to database, enforces $2/day limit
+- Combined score: `(quick_score * 0.3) + (ai_score * 2 * 0.7)` → normalized to 0-10
+
+### Deduplication
+- Exact match by `post_id` (primary check)
+- Text similarity: 80%+ Jaccard similarity from same author within 24 hours
+
+## API Rate Limits & Cost Controls
+
+- **Twitter API**: 450 requests per 15-min window (free tier), 500k tweets/month
+- **LinkedIn RSS**: No official limits, but feeds polled every 2 hours to be respectful
+- **OpenAI API**: $2/day budget enforced in code, tracks usage in database
+- **Telegram Bot**: 30 messages/second per chat (very generous)
+
+## Code Style Guidelines
+
+- **Language**: JavaScript (backend), TypeScript (frontend)
+- **Modules**: ES Modules with explicit `.js` extensions in imports (backend)
+- **Naming**: camelCase for variables/functions, UPPER_SNAKE_CASE for constants, PascalCase for React components
+- **Logging**: Winston only (backend), NO `console.log` statements
+- **Error Handling**: Try/catch with proper logging, exponential backoff for API retries
+- **Security**: NEVER log secrets/tokens, sanitize error stack traces, use service role key (not anon) in backend
+- **Comments**: Minimal - code should be self-documenting
+
+## Critical: Codacy Integration
+
+**IMPORTANT**: This project uses Codacy for code quality and security analysis.
+
+### After ANY file edit:
+- MUST immediately run `codacy_cli_analyze` on edited files
+- If issues found, propose and apply fixes
+- Do not proceed until issues are resolved
+
+### After installing dependencies:
+- MUST run `codacy_cli_analyze` with `tool="trivy"` for security scanning
+- If vulnerabilities found, stop and fix before continuing
+
+See [.cursor/rules/codacy.mdc](.cursor/rules/codacy.mdc) for complete Codacy rules.
+
+## MCP Server: HeySol Memory & Context
+
+**CRITICAL**: This project uses the HeySol MCP server for persistent memory and context across Claude Code sessions.
+
+### Configuration
+- **MCP Server**: HeySol (https://core.heysol.ai/api/v1/mcp?source=claude)
+- **Purpose**: Store and retrieve project context, decisions, and important information
+- **Authentication**: Uses `HEYSOL_API_KEY` from `.env` file
+- **Configuration File**: `.mcp.json` (checked into version control)
+
+### When to Use HeySol MCP
+
+**MUST use HeySol MCP tools in these situations:**
+
+1. **At the start of EVERY session**: Retrieve stored context about project state, recent decisions, and pending tasks
+2. **After making important decisions**: Store architectural choices, API integrations, scoring algorithm changes
+3. **When completing major milestones**: Save progress on features, database schema updates, deployment configs
+4. **After debugging critical issues**: Record root causes, fixes applied, and lessons learned
+5. **Before ending a session**: Store current state, next steps, and any blockers
+
+### What to Store in HeySol
+
+- Monorepo architecture decisions and workspace configurations
+- Database schema changes and migration history
+- Scoring algorithm tuning results (thresholds, weights)
+- API integration learnings (rate limits encountered, authentication issues)
+- Performance optimizations applied
+- Frontend component architecture decisions
+- Testing results and known issues
+- Deployment configurations (Railway, Vercel/Netlify)
+
+## Database Schema (Supabase)
+
+**Tables**:
+- `leads` - All discovered opportunities with scores, status, metadata, platform info
+- `oauth_tokens` - Twitter/LinkedIn tokens (encrypted at rest)
+- `keywords` - Search terms with performance metrics (leads_found, conversion_rate)
+- `polling_logs` - Execution history, API costs, errors
+- `notifications` - Telegram delivery tracking and engagement
+- `user_actions` - Button clicks and status updates from Telegram callbacks
+
+See [Doc/Project-Doc.md](Doc/Project-Doc.md) Section 3 (lines 465-742) for complete schema.
 
 ## Key Design Decisions
 
-1. **Two-stage scoring**: Quick regex filter first, then expensive AI analysis only for promising leads (quick_score ≥ 5)
-2. **Deduplication**: Check by post_id AND text similarity (80%+ match from same author within 24 hours)
-3. **Notification threshold**: Only send Telegram alerts for score ≥ 8 to reduce noise
-4. **Token management**: Auto-refresh OAuth tokens before expiration, alert on failure
-5. **Cost control**: Max $2/day OpenAI spend, track per-analysis cost in database
-6. **Polling frequency**: Every 30 minutes (balance between freshness and API limits)
+1. **Monorepo Structure**: Separate API and Web apps for independent deployment, shared types package
+2. **Two-Stage Scoring**: Cheap regex filter first, expensive AI only for promising leads (quick_score ≥ 5)
+3. **Package Manager**: pnpm workspaces for faster installs and better dependency management
+4. **Frontend Framework**: React + Vite for fast dev experience, TypeScript for type safety
+5. **Database Access**: Backend uses service role key, frontend uses anon key with RLS policies
+6. **Notification Threshold**: Only send Telegram alerts for score ≥ 8 to reduce noise
+7. **Cost Control**: $2/day OpenAI budget enforced in code, tracked per-analysis
+8. **LinkedIn Strategy**: RSS feeds instead of API due to restrictive access
+9. **Polling Frequency**: Every 30 minutes (balance between freshness and API limits)
+10. **Health Monitoring**: HTTP endpoint for Railway/Docker health checks
 
 ## Success Metrics
 
 **Technical Targets**:
-- Uptime: >99%
-- Polling cycle: <2 minutes completion time
+- Backend uptime: >99%
+- Polling cycle completion: <2 minutes
 - Lead processing: <5 seconds per lead
-- Notification delivery: <2 minutes from post creation
+- Frontend load time: <2 seconds
 - Database queries: <100ms (95th percentile)
 
 **Business Targets** (90 days):
@@ -329,79 +430,32 @@ AI_MIN_SCORE_THRESHOLD=5
 - Response time average <30 minutes
 - False positive rate <15%
 
-## Development Workflow
+## Deployment
 
-### Before Starting Development
-1. **Install dependencies**: Run `pnpm install` (NOT npm install)
-2. **Set up environment**: Copy `.env.example` to `.env` and fill in API keys
-3. **Verify Node version**: Ensure Node.js >=20.0.0 (`node --version`)
+**Backend** (Railway):
+- Service: apps/api
+- Build Command: None (Node.js runtime)
+- Start Command: `pnpm --filter @leadscout/api run start`
+- Health Check: `/health` endpoint
+- Environment: Set all backend .env variables in Railway dashboard
 
-### When Implementing Features
-1. **Database First**: Create/update Supabase schema before writing code
-2. **API Integration**: Test API connectivity with small scripts before full implementation
-3. **Scoring Tuning**: Start with conservative thresholds, tune based on real data
-4. **Logging**: Use the winston logger from `src/utils/logger.js` (ERROR, WARN, INFO, DEBUG levels)
-5. **Error Recovery**: Implement retry logic with exponential backoff for all API calls
-6. **Testing**: Manual testing checklist in Doc/Project-Doc.md section 9
-
-### Current Implementation Pattern
-- **ES Modules**: All imports use `.js` extension (e.g., `import logger from './utils/logger.js'`)
-- **Configuration**: Centralized in `src/config/env.js`, loaded via dotenv
-- **Database**: Supabase client initialized in `src/config/database.js`
-- **Entry Point**: `src/index.js` handles startup, graceful shutdown, and error handling
-- **Logging**: Structured JSON logging via winston (configured in `src/utils/logger.js`)
-
-## Security Considerations
-
-- OAuth tokens stored encrypted in Supabase (encrypted at rest)
-- Use Supabase service role key (not anon key) for backend operations
-- Never commit .env files to git
-- Sanitize all error messages before logging
-- Only store publicly available post data (no private DMs)
-- Comply with Twitter/LinkedIn Terms of Service
-- Rate limit all API calls to respect platform limits
-
-## Monitoring & Health Checks
-
-**Health Indicators**:
-- System uptime and memory usage
-- Last polling time (<30 min ago = healthy)
-- Database connectivity
-- OAuth token validity
-- API health checks (Twitter, LinkedIn, OpenAI, Telegram)
-- Today's stats (leads found, notifications sent)
-
-**Critical Alerts** (sent via Telegram):
-- System down >30 minutes
-- No leads found in 24 hours (possible API issue)
-- OAuth tokens invalid
-- Database connection lost
-- Daily cost exceeds $5
-
-**Analytics Views** (Supabase SQL):
-- Daily performance by platform
-- Conversion funnel (leads → contacted → won)
-- Top keywords by revenue
-- Response time analysis
-
-## LinkedIn Implementation Note
-
-LinkedIn API is extremely restrictive for public search. Implementation options:
-1. **LinkedIn API**: Only accesses user's network posts (limited value)
-2. **RSS Feeds**: Parse company pages and hashtag feeds (recommended approach)
-3. **Scraping**: Against ToS, risk of account ban (NOT recommended)
-
-**Decision**: Use RSS feeds for LinkedIn, reduce polling frequency to every 2 hours.
+**Frontend** (Vercel/Netlify):
+- Root Directory: apps/web
+- Build Command: `cd ../.. && pnpm --filter @leadscout/web run build`
+- Output Directory: apps/web/dist
+- Environment: Set all frontend .env variables (VITE_ prefixed)
 
 ## Reference Documentation
 
 - **Complete PRD & Technical Spec**: [Doc/Project-Doc.md](Doc/Project-Doc.md)
+- **Phase 2 Implementation Report**: [PHASE2_IMPLEMENTATION.md](PHASE2_IMPLEMENTATION.md)
+- **Main README**: [README.md](README.md)
 - **Architecture Summary**: [AGENTS.md](AGENTS.md)
 - **Codacy Rules**: [.cursor/rules/codacy.mdc](.cursor/rules/codacy.mdc)
 
 ## Quick Reference
 
-**Database Schema**: See Doc/Project-Doc.md Section 3 (lines 465-742)
-**Scoring Algorithm**: See Doc/Project-Doc.md Section 5.1 (lines 1016-1146)
-**API Integration Details**: See Doc/Project-Doc.md Section 4 (lines 743-1006)
-**Deployment Config**: See Doc/Project-Doc.md Section 6 (lines 1230-1408)
+**Database Schema**: See [Doc/Project-Doc.md](Doc/Project-Doc.md) Section 3 (lines 465-742)
+**Scoring Algorithm**: See [Doc/Project-Doc.md](Doc/Project-Doc.md) Section 5.1 (lines 1016-1146)
+**API Integration Details**: See [Doc/Project-Doc.md](Doc/Project-Doc.md) Section 4 (lines 743-1006)
+**Backend Service Details**: See [PHASE2_IMPLEMENTATION.md](PHASE2_IMPLEMENTATION.md)

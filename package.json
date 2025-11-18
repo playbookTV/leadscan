@@ -21,7 +21,7 @@
     "node": ">=20.0.0",
     "pnpm": ">=8.0.0"
   },
-  "packageManager": "pnpm@8.15.0",
+  "packageManager": "pnpm@10.22.0",
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^5.1.0",
