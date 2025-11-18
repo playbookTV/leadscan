@@ -33,7 +33,7 @@ function initializeTwitterClient() {
 }
 
 /**
- * Test Twitter API connection and rate limit status
+ * Test Twitter API connection with a simple API call
  */
 async function testTwitterConnection() {
   try {
@@ -42,13 +42,21 @@ async function testTwitterConnection() {
       return false;
     }
 
-    // Get rate limit status for search endpoint
-    const rateLimits = await twitterClient.v2.getRateLimitStatus('tweets/search/recent');
+    // Test with a simple search query to verify credentials
+    // Using a minimal query to avoid hitting rate limits
+    const readOnlyClient = twitterClient.readOnly;
+    const result = await readOnlyClient.v2.search('test', {
+      max_results: 10,
+      'tweet.fields': ['created_at']
+    });
 
     logger.info('Twitter API connection test successful', {
-      limit: rateLimits.limit,
-      remaining: rateLimits.remaining,
-      reset: new Date(rateLimits.reset * 1000).toISOString()
+      resultsCount: result.data?.data?.length || 0,
+      rateLimit: result.rateLimit ? {
+        limit: result.rateLimit.limit,
+        remaining: result.rateLimit.remaining,
+        reset: new Date(result.rateLimit.reset * 1000).toISOString()
+      } : 'unknown'
     });
 
     return true;
