@@ -2,7 +2,7 @@ import config from '../config/env.js';
 import logger from '../utils/logger.js';
 import { getDatabase } from '../config/database.js';
 import { pollTwitter } from './twitter-poller.js';
-import { pollLinkedIn } from './linkedin-poller.js';
+import { pollReddit } from './reddit-poller.js';
 import { checkDuplicate, scoreLead } from './lead-scorer.js';
 import { sendLeadAlert } from './notifier.js';
 import websocketService from './websocket-service.js';
@@ -54,23 +54,22 @@ async function pollAllPlatforms() {
     logger.info('Active keywords loaded', {
       total: keywords.length,
       twitter: keywords.filter(k => !k.platform || k.platform === 'twitter').length,
-      linkedin: keywords.filter(k => !k.platform || k.platform === 'linkedin').length,
+      reddit: keywords.filter(k => !k.platform || k.platform === 'reddit').length,
       allPlatforms: keywords.filter(k => !k.platform).length
     });
 
     // Poll platforms in parallel
-    const [twitterLeads, linkedinLeads] = await Promise.all([
+    const [twitterLeads, redditLeads] = await Promise.all([
       pollTwitterSafely(keywords),
-      pollLinkedInSafely(keywords)
+      pollRedditSafely(keywords)
     ]);
 
-    // Combine results
-    const allLeads = [...twitterLeads, ...linkedinLeads];
+    const allLeads = [...twitterLeads, ...redditLeads];
     pollResults.totalPosts = allLeads.length;
 
     logger.info('Platform polling completed', {
       twitterLeads: twitterLeads.length,
-      linkedinLeads: linkedinLeads.length,
+      redditLeads: redditLeads.length,
       totalLeads: allLeads.length
     });
 
@@ -110,9 +109,9 @@ async function pollAllPlatforms() {
         posts: twitterLeads.length,
         leads: twitterLeads.filter(l => l.processed).length || 0
       },
-      linkedin: {
-        posts: linkedinLeads.length,
-        leads: linkedinLeads.filter(l => l.processed).length || 0
+      reddit: {
+        posts: redditLeads.length,
+        leads: redditLeads.filter(l => l.processed).length || 0
       }
     };
 
@@ -190,8 +189,8 @@ async function createDefaultKeywords() {
     { platform: 'twitter', keyword: 'need freelance developer', is_active: true },
     { platform: 'twitter', keyword: 'hiring web developer', is_active: true },
     { platform: 'twitter', keyword: 'website project budget', is_active: true },
-    { platform: 'linkedin', keyword: 'webdevelopment', is_active: true },
-    { platform: 'linkedin', keyword: 'freelance', is_active: true }
+    { platform: 'reddit', keyword: 'need web developer', is_active: true },
+    { platform: 'reddit', keyword: 'looking for freelancer', is_active: true }
   ];
 
   try {
@@ -237,18 +236,18 @@ async function pollTwitterSafely(keywords) {
 }
 
 /**
- * Poll LinkedIn with error handling
+ * Poll Reddit with error handling
  */
-async function pollLinkedInSafely(keywords) {
+async function pollRedditSafely(keywords) {
   try {
-    if (!config.polling.platforms.includes('linkedin')) {
-      logger.debug('LinkedIn polling disabled');
+    if (!config.polling.platforms.includes('reddit')) {
+      logger.debug('Reddit polling disabled');
       return [];
     }
 
-    return await pollLinkedIn(keywords);
+    return await pollReddit(keywords);
   } catch (error) {
-    logger.error('LinkedIn polling failed', {
+    logger.error('Reddit polling failed', {
       error: error.message
     });
     return [];

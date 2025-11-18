@@ -370,7 +370,7 @@ router.get('/platform-performance', async (req, res, next) => {
     }
 
     // Get platform-specific metrics
-    const platforms = ['twitter', 'linkedin']
+    const platforms = ['twitter', 'reddit']
     const platformMetrics = await Promise.all(
       platforms.map(async (platform) => {
         // Total leads

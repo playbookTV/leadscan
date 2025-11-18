@@ -17,13 +17,14 @@ const optionalEnvVars = {
   TWITTER_BEARER_TOKEN: null,
   TWITTER_ACCESS_TOKEN: null,
   TWITTER_ACCESS_SECRET: null,
-  LINKEDIN_CLIENT_ID: null,
-  LINKEDIN_CLIENT_SECRET: null,
-  LINKEDIN_ACCESS_TOKEN: null,
+  REDDIT_CLIENT_ID: null,
+  REDDIT_CLIENT_SECRET: null,
+  REDDIT_REFRESH_TOKEN: null,
+  REDDIT_USER_AGENT: 'Leadscout/1.0',
   OPENAI_MODEL: 'gpt-4o-mini',
   OPENAI_MAX_DAILY_COST: '2.00',
   POLLING_CRON_SCHEDULE: '*/30 * * * *',
-  POLLING_PLATFORMS: 'twitter,linkedin',
+  POLLING_PLATFORMS: 'twitter,reddit',
   POLLING_INTERVAL_MINUTES: '30',
   MIN_NOTIFICATION_SCORE: '8',
   ENABLE_AI_ANALYSIS: 'true',
@@ -77,10 +78,11 @@ const config = {
     accessSecret: getEnv('TWITTER_ACCESS_SECRET', optionalEnvVars.TWITTER_ACCESS_SECRET)
   },
 
-  linkedin: {
-    clientId: getEnv('LINKEDIN_CLIENT_ID', optionalEnvVars.LINKEDIN_CLIENT_ID),
-    clientSecret: getEnv('LINKEDIN_CLIENT_SECRET', optionalEnvVars.LINKEDIN_CLIENT_SECRET),
-    accessToken: getEnv('LINKEDIN_ACCESS_TOKEN', optionalEnvVars.LINKEDIN_ACCESS_TOKEN)
+  reddit: {
+    clientId: getEnv('REDDIT_CLIENT_ID'),
+    clientSecret: getEnv('REDDIT_CLIENT_SECRET'),
+    refreshToken: getEnv('REDDIT_REFRESH_TOKEN'),
+    userAgent: getEnv('REDDIT_USER_AGENT', 'Leadscout/1.0')
   },
 
   openai: {

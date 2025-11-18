@@ -39,14 +39,14 @@ export function verifyConfiguration() {
     config.twitter.accessSecret
   );
 
-  const linkedInConfigured = !!(
-    config.linkedin.clientId &&
-    config.linkedin.clientSecret &&
-    config.linkedin.accessToken
+  const redditConfigured = !!(
+    config.reddit.clientId &&
+    config.reddit.clientSecret &&
+    config.reddit.refreshToken
   );
 
-  if (!twitterConfigured && !linkedInConfigured) {
-    results.warnings.push('No social media platforms configured (Twitter or LinkedIn)');
+  if (!twitterConfigured && !redditConfigured) {
+    results.warnings.push('No social media platforms configured (Twitter or Reddit)');
   } else {
     if (twitterConfigured) {
       results.info.push('✅ Twitter API configured');
@@ -54,10 +54,10 @@ export function verifyConfiguration() {
       results.warnings.push('Twitter API not configured - Twitter polling disabled');
     }
 
-    if (linkedInConfigured) {
-      results.info.push('✅ LinkedIn API configured');
+    if (redditConfigured) {
+      results.info.push('✅ Reddit API configured');
     } else {
-      results.warnings.push('LinkedIn API not configured - LinkedIn polling disabled');
+      results.warnings.push('Reddit API not configured - Reddit polling disabled');
     }
   }
 
@@ -79,7 +79,7 @@ export function verifyConfiguration() {
     logger.info('✅ Configuration verification passed', {
       environment: config.nodeEnv,
       twitterEnabled: twitterConfigured,
-      linkedInEnabled: linkedInConfigured,
+      redditEnabled: redditConfigured,
       aiEnabled: config.scoring.enableAiAnalysis,
       pollingInterval: config.polling.intervalMinutes
     });

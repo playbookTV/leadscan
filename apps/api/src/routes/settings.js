@@ -20,9 +20,9 @@ router.get('/config', async (req, res, next) => {
           enabled: !!config.twitter.accessToken,
           rate_limit: 15 // requests per 15 minutes
         },
-        linkedin: {
-          enabled: !!config.linkedin.accessToken,
-          rate_limit: 100 // requests per day
+        reddit: {
+          enabled: !!config.reddit.refreshToken,
+          rate_limit: 100 // requests per minute
         }
       },
       notifications: {
@@ -64,7 +64,7 @@ router.get('/oauth-status', async (req, res, next) => {
         expires_at: null,
         last_refreshed: null
       },
-      linkedin: {
+      reddit: {
         connected: false,
         valid: false,
         expires_at: null,
@@ -197,9 +197,9 @@ router.post('/reset-polling/:platform', async (req, res, next) => {
   try {
     const { platform } = req.params
 
-    if (!['twitter', 'linkedin'].includes(platform)) {
+    if (!['twitter', 'reddit'].includes(platform)) {
       return res.status(400).json({
-        error: 'Invalid platform. Must be twitter or linkedin'
+        error: 'Invalid platform. Must be twitter or reddit'
       })
     }
 

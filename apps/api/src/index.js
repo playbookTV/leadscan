@@ -5,7 +5,7 @@ import logger from './utils/logger.js';
 import { initializeDatabase, testDatabaseConnection } from './config/database.js';
 import app from './server.js';
 import { initializeTwitterClient, testTwitterConnection } from './config/twitter.js';
-import { initializeLinkedInParser, testLinkedInConnection } from './config/linkedin.js';
+import { initializeRedditClient, testRedditConnection } from './config/reddit.js';
 import { initializeOpenAIClient, testOpenAIConnection } from './config/openai.js';
 import { initializeTelegramBot, testTelegramConnection, stopTelegramBot } from './config/telegram.js';
 import { pollAllPlatforms, getPollingStats } from './services/polling.js';
@@ -25,7 +25,7 @@ async function initializeServices() {
   const services = {
     database: false,
     twitter: false,
-    linkedin: false,
+    reddit: false,
     openai: false,
     telegram: false
   };
@@ -47,13 +47,13 @@ async function initializeServices() {
     logger.warn('Twitter service not available', { error: error.message });
   }
 
-  // Initialize LinkedIn RSS parser (optional)
+  // Initialize Reddit client (optional)
   try {
-    logger.info('Initializing LinkedIn RSS parser...');
-    initializeLinkedInParser();
-    services.linkedin = await testLinkedInConnection();
+    logger.info('Initializing Reddit client...');
+    initializeRedditClient();
+    services.reddit = await testRedditConnection();
   } catch (error) {
-    logger.warn('LinkedIn service not available', { error: error.message });
+    logger.warn('Reddit service not available', { error: error.message });
   }
 
   // Initialize OpenAI (required for AI scoring)
@@ -209,7 +209,7 @@ async function startApplication() {
       logger.warn('Telegram not available - notifications will be disabled');
     }
 
-    if (!services.twitter && !services.linkedin) {
+    if (!services.twitter && !services.reddit) {
       logger.warn('No polling platforms available - system will not find new leads');
     }
 
