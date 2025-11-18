@@ -15,7 +15,7 @@ CREATE TABLE leads (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
 
   -- Post Data
-  platform VARCHAR(20) NOT NULL CHECK (platform IN ('twitter', 'linkedin')),
+  platform VARCHAR(20) NOT NULL CHECK (platform IN ('twitter', 'linkedin', 'reddit')),
   post_id VARCHAR(255) UNIQUE NOT NULL,
   post_text TEXT NOT NULL,
   post_url TEXT NOT NULL,
