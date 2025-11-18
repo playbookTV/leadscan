@@ -11,11 +11,12 @@ import { initializeTelegramBot, testTelegramConnection, stopTelegramBot } from '
 import { pollAllPlatforms, getPollingStats } from './services/polling.js';
 import { setupCallbackHandlers } from './services/notifier.js';
 import { getTimeAgo } from './utils/helpers.js';
+import websocketService from './services/websocket-service.js';
 
 // Global state
 let isShuttingDown = false;
 let cronJob = null;
-let healthServer = null;
+let httpServer = null;
 
 /**
  * Initialize all services
@@ -111,7 +112,7 @@ function startCronScheduler() {
 }
 
 /**
- * Start Express API server
+ * Start Express API server with WebSocket support
  */
 function startExpressServer() {
   const port = config.port || 3000;
@@ -119,6 +120,7 @@ function startExpressServer() {
   // Add health check route to Express app
   app.get('/health', async (req, res) => {
     const stats = getPollingStats();
+    const wsStats = websocketService.getStats();
     const health = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -130,6 +132,10 @@ function startExpressServer() {
         totalLeadsFound: stats.totalLeadsFound,
         totalNotificationsSent: stats.totalNotificationsSent,
         totalApiCost: `$${stats.totalApiCost.toFixed(4)}`
+      },
+      websocket: {
+        connected: wsStats.totalConnected,
+        subscribedToLeads: wsStats.subscribedToLeads
       },
       memory: {
         used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
@@ -145,16 +151,32 @@ function startExpressServer() {
     res.json(stats);
   });
 
-  healthServer = app.listen(port, () => {
-    logger.info(`Express API server listening on port ${port}`, {
+  // Add WebSocket stats route
+  app.get('/ws-stats', async (req, res) => {
+    const wsStats = websocketService.getStats();
+    res.json(wsStats);
+  });
+
+  // Create HTTP server
+  httpServer = http.createServer(app);
+
+  // Initialize WebSocket server
+  websocketService.initialize(httpServer);
+
+  // Start HTTP server
+  httpServer.listen(port, () => {
+    logger.info(`Express API server with WebSocket support listening on port ${port}`, {
       endpoints: [
         `http://localhost:${port}/health`,
         `http://localhost:${port}/stats`,
+        `http://localhost:${port}/ws-stats`,
         `http://localhost:${port}/api/leads`,
         `http://localhost:${port}/api/keywords`,
         `http://localhost:${port}/api/analytics`,
-        `http://localhost:${port}/api/settings`
-      ]
+        `http://localhost:${port}/api/settings`,
+        `http://localhost:${port}/api/email`
+      ],
+      websocket: `ws://localhost:${port}`
     });
   });
 }
@@ -262,10 +284,14 @@ async function shutdown(signal) {
     logger.info('Stopping Telegram bot...');
     await stopTelegramBot();
 
-    // Close Express API server
-    if (healthServer) {
-      logger.info('Closing Express API server...');
-      healthServer.close();
+    // Shutdown WebSocket server
+    logger.info('Shutting down WebSocket server...');
+    await websocketService.shutdown();
+
+    // Close HTTP server
+    if (httpServer) {
+      logger.info('Closing HTTP server...');
+      httpServer.close();
     }
 
     // Log final stats

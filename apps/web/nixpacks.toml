@@ -1,11 +1,11 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "pnpm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["pnpm install --frozen-lockfile"]
+cmds = ["npm install -g pnpm@8.15.0", "pnpm install --frozen-lockfile --filter @leadscout/web..."]
 
 [phases.build]
-cmds = ["pnpm build"]
+cmds = ["cd apps/web && pnpm build"]
 
 [start]
-cmd = "npx serve -s dist -l 8080"
+cmd = "npx serve -s apps/web/dist -l $PORT"

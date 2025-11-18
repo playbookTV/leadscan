@@ -9,6 +9,7 @@ import leadsRoutes from './routes/leads.js'
 import keywordsRoutes from './routes/keywords.js'
 import analyticsRoutes from './routes/analytics.js'
 import settingsRoutes from './routes/settings.js'
+import emailRoutes from './routes/email.js'
 
 const app = express()
 
@@ -37,6 +38,7 @@ app.use('/api/leads', leadsRoutes)
 app.use('/api/keywords', keywordsRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api/email', emailRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

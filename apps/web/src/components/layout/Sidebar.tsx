@@ -10,6 +10,7 @@ import {
   Target
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { ThemeToggle } from '../ThemeToggle';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -49,11 +50,14 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Status indicator */}
+      {/* Status indicator & Theme Toggle */}
       <div className="px-4 py-4 border-t border-gray-800">
-        <div className="flex items-center px-3 py-2">
-          <Activity className="w-5 h-5 text-green-400 animate-pulse" />
-          <span className="ml-3 text-sm text-gray-400">System Active</span>
+        <div className="flex items-center justify-between px-3 py-2">
+          <div className="flex items-center">
+            <Activity className="w-5 h-5 text-green-400 animate-pulse" />
+            <span className="ml-3 text-sm text-gray-400">System Active</span>
+          </div>
+          <ThemeToggle />
         </div>
       </div>
     </div>

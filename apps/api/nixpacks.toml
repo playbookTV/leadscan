@@ -1,11 +1,8 @@
 [phases.setup]
-nixPkgs = ["nodejs_20", "pnpm"]
+nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["pnpm install --frozen-lockfile"]
-
-[phases.build]
-cmds = []
+cmds = ["npm install -g pnpm@8.15.0", "pnpm install --frozen-lockfile --filter @leadscout/api..."]
 
 [start]
-cmd = "node src/index.js"
+cmd = "cd apps/api && node src/index.js"

@@ -202,6 +202,55 @@ router.post('/:id/notes', async (req, res, next) => {
   }
 })
 
+// POST /api/leads/bulk - Bulk operations on multiple leads
+router.post('/bulk', async (req, res, next) => {
+  try {
+    const { ids, action, data } = req.body
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: 'ids array is required' })
+    }
+
+    let updateData = {}
+
+    switch (action) {
+      case 'contacted':
+        updateData = { status: 'contacted', contacted_at: new Date().toISOString() }
+        break
+      case 'won':
+        updateData = { status: 'converted', converted_at: new Date().toISOString() }
+        break
+      case 'lost':
+        updateData = { status: 'lost', lost_at: new Date().toISOString() }
+        break
+      case 'ignored':
+        updateData = { status: 'ignored' }
+        break
+      case 'update':
+        updateData = data // Custom update
+        break
+      default:
+        return res.status(400).json({ error: 'Invalid action' })
+    }
+
+    // Add updated_at timestamp
+    updateData.updated_at = new Date().toISOString()
+
+    const { data: updated, error } = await db
+      .from('leads')
+      .update(updateData)
+      .in('id', ids)
+      .select()
+
+    if (error) throw error
+
+    logger.info(`Bulk ${action} on ${ids.length} leads`)
+    res.json({ updated: updated.length, leads: updated })
+  } catch (error) {
+    next(error)
+  }
+})
+
 // DELETE /api/leads/:id - Delete lead
 router.delete('/:id', async (req, res, next) => {
   try {

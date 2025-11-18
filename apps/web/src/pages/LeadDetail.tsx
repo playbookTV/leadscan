@@ -4,6 +4,7 @@ import { useLead, useLeadAction, useAddNote } from '../hooks/useLeads';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
+import EmailComposer from '../components/EmailComposer';
 import {
   ArrowLeft,
   ExternalLink,
@@ -15,7 +16,8 @@ import {
   CheckCircle,
   XCircle,
   Trophy,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 import {
   formatDateTime,
@@ -31,6 +33,7 @@ export function LeadDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [noteText, setNoteText] = useState('');
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
 
   const { data: lead, isLoading, error } = useLead(id);
   const leadAction = useLeadAction();
@@ -300,6 +303,14 @@ export function LeadDetail() {
             <CardContent className="space-y-2">
               <Button
                 className="w-full"
+                variant="default"
+                onClick={() => setShowEmailComposer(true)}
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Send Email
+              </Button>
+              <Button
+                className="w-full"
                 variant="primary"
                 onClick={() => handleAction('contact')}
                 disabled={lead.status === 'contacted'}
@@ -371,6 +382,19 @@ export function LeadDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Email Composer Modal */}
+      {lead && (
+        <EmailComposer
+          lead={lead}
+          isOpen={showEmailComposer}
+          onClose={() => setShowEmailComposer(false)}
+          onSent={() => {
+            // Refresh lead data after email sent
+            // The useQuery hook will automatically refetch
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -4,7 +4,7 @@ import logger from '../utils/logger.js'
 
 const router = express.Router()
 
-// GET /api/analytics/overview - General analytics overview with timeline data
+// GET /api/analytics/overview - Last 30 days daily stats with comprehensive metrics
 router.get('/overview', async (req, res, next) => {
   try {
     const { days = 30 } = req.query
@@ -86,21 +86,82 @@ router.get('/overview', async (req, res, next) => {
       }
     })
 
-    // Convert to array format for charts
-    const labels = Object.keys(dailyData).sort()
-    const leadsArray = labels.map(date => dailyData[date].leads)
-    const contactedArray = labels.map(date => dailyData[date].contacted)
+    // Get high priority leads and revenue data
+    const { data: highPriorityLeads, error: highPriorityError } = await db
+      .from('leads')
+      .select('created_at, estimated_budget, status')
+      .gte('score', 7)
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: true })
 
-    res.json({
-      labels,
-      leads: leadsArray,
-      contacted: contactedArray,
-      total_leads: platformStats?.length || 0,
-      platforms: platformCounts,
-      statuses: statusCounts,
-      score_distribution: scoreDistribution,
-      generated_at: new Date().toISOString()
+    if (highPriorityError) throw highPriorityError
+
+    // Get won deals and revenue
+    const { data: wonDeals, error: wonError } = await db
+      .from('leads')
+      .select('created_at, estimated_budget, converted_at')
+      .eq('status', 'converted')
+      .gte('created_at', startDate.toISOString())
+      .order('created_at', { ascending: true })
+
+    if (wonError) throw wonError
+
+    // Enhanced daily data with more metrics
+    const enhancedDailyData = {}
+
+    // Initialize all days
+    for (let d = new Date(startDate); d <= now; d.setDate(d.getDate() + 1)) {
+      const dateKey = new Date(d).toISOString().split('T')[0]
+      enhancedDailyData[dateKey] = {
+        date: dateKey,
+        total_leads: 0,
+        high_priority: 0,
+        contacted: 0,
+        won: 0,
+        revenue: 0
+      }
+    }
+
+    // Add standard lead data
+    dailyLeads?.forEach(lead => {
+      const date = new Date(lead.created_at).toISOString().split('T')[0]
+      if (enhancedDailyData[date]) {
+        enhancedDailyData[date].total_leads++
+        if (['contacted', 'responded', 'converted'].includes(lead.status)) {
+          enhancedDailyData[date].contacted++
+        }
+      }
     })
+
+    // Add high priority data
+    highPriorityLeads?.forEach(lead => {
+      const date = new Date(lead.created_at).toISOString().split('T')[0]
+      if (enhancedDailyData[date]) {
+        enhancedDailyData[date].high_priority++
+      }
+    })
+
+    // Add won deals and revenue
+    wonDeals?.forEach(deal => {
+      const date = new Date(deal.created_at).toISOString().split('T')[0]
+      if (enhancedDailyData[date]) {
+        enhancedDailyData[date].won++
+        // Parse budget
+        if (deal.estimated_budget) {
+          const budget = typeof deal.estimated_budget === 'string'
+            ? parseFloat(deal.estimated_budget.replace(/[^0-9.-]/g, ''))
+            : deal.estimated_budget
+          enhancedDailyData[date].revenue += budget || 0
+        }
+      }
+    })
+
+    // Convert to array format for charts
+    const chartData = Object.values(enhancedDailyData).sort((a, b) =>
+      new Date(a.date) - new Date(b.date)
+    )
+
+    res.json(chartData)
   } catch (error) {
     next(error)
   }
@@ -144,11 +205,12 @@ router.get('/funnel', async (req, res, next) => {
 
     if (convertedError) throw convertedError
 
-    // Return simple format for funnel chart
+    // Return proper funnel format
     res.json({
-      total: totalLeads || 0,
+      new: totalLeads || 0,
       reviewed: reviewedLeads || 0,
       contacted: contactedLeads || 0,
+      responded: respondedLeads || 0,
       won: convertedLeads || 0
     })
   } catch (error) {
@@ -501,6 +563,62 @@ router.get('/score-distribution', async (req, res, next) => {
     })
 
     res.json(distribution)
+  } catch (error) {
+    next(error)
+  }
+})
+
+// GET /api/analytics/response-times - Average response times
+router.get('/response-times', async (req, res, next) => {
+  try {
+    // Get leads with contact times
+    const { data: leads, error } = await db
+      .from('leads')
+      .select('created_at, contacted_at, responded_at')
+      .not('contacted_at', 'is', null)
+
+    if (error) throw error
+
+    // Calculate response time distributions
+    const responseTimes = leads?.map(lead => {
+      const createdAt = new Date(lead.created_at)
+      const contactedAt = new Date(lead.contacted_at)
+      const hoursToContact = (contactedAt - createdAt) / (1000 * 60 * 60)
+      return hoursToContact
+    }) || []
+
+    // Calculate distributions
+    const under1h = responseTimes.filter(h => h < 1).length
+    const under24h = responseTimes.filter(h => h < 24).length
+    const under48h = responseTimes.filter(h => h < 48).length
+    const over48h = responseTimes.filter(h => h >= 48).length
+
+    const avgHours = responseTimes.length > 0
+      ? responseTimes.reduce((sum, h) => sum + h, 0) / responseTimes.length
+      : 0
+
+    res.json({
+      avg_hours: parseFloat(avgHours.toFixed(1)),
+      under_1h: under1h,
+      under_24h: under24h,
+      under_48h: under48h,
+      over_48h: over48h,
+      total_contacted: responseTimes.length,
+      distribution_percentage: {
+        under_1h: responseTimes.length > 0
+          ? parseFloat(((under1h / responseTimes.length) * 100).toFixed(1))
+          : 0,
+        under_24h: responseTimes.length > 0
+          ? parseFloat(((under24h / responseTimes.length) * 100).toFixed(1))
+          : 0,
+        under_48h: responseTimes.length > 0
+          ? parseFloat(((under48h / responseTimes.length) * 100).toFixed(1))
+          : 0,
+        over_48h: responseTimes.length > 0
+          ? parseFloat(((over48h / responseTimes.length) * 100).toFixed(1))
+          : 0
+      }
+    })
   } catch (error) {
     next(error)
   }

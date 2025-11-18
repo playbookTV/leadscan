@@ -5,6 +5,7 @@ import { pollTwitter } from './twitter-poller.js';
 import { pollLinkedIn } from './linkedin-poller.js';
 import { checkDuplicate, scoreLead } from './lead-scorer.js';
 import { sendLeadAlert } from './notifier.js';
+import websocketService from './websocket-service.js';
 
 // Track polling state
 let isPolling = false;
@@ -310,12 +311,18 @@ async function processLead(lead) {
     try {
       await sendLeadAlert(savedLead);
       notificationSent = true;
+
+      // Emit new lead via WebSocket for real-time updates
+      websocketService.notifyNewLead(savedLead);
     } catch (notifyError) {
       logger.error('Failed to send notification', {
         error: notifyError.message,
         leadId: savedLead.id
       });
     }
+  } else if (savedLead.final_score >= 5) {
+    // Still emit via WebSocket for medium-score leads (but no Telegram)
+    websocketService.notifyNewLead(savedLead);
   }
 
   // Step 5: Update keyword statistics

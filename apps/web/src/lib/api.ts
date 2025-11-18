@@ -153,7 +153,12 @@ export const leads = {
   },
 
   action: async (id: string, action: 'contact' | 'skip' | 'win' | 'lose' | 'review', notes?: string): Promise<Lead> => {
-    const { data } = await api.post(`/api/leads/${id}/action`, { action, notes });
+    const { data} = await api.post(`/api/leads/${id}/action`, { action, notes });
+    return data;
+  },
+
+  bulk: async (leadIds: string[], action: string): Promise<any> => {
+    const { data } = await api.post('/api/leads/bulk', { leadIds, action });
     return data;
   }
 };
