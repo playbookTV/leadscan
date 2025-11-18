@@ -2,7 +2,10 @@
 nixPkgs = ["nodejs_20"]
 
 [phases.install]
-cmds = ["npm install -g pnpm@10.22.0", "pnpm install --no-frozen-lockfile --filter @leadscout/api..."]
+cmds = [
+  "npm install -g pnpm@10.22.0",
+  "cd ../.. && pnpm install --no-frozen-lockfile"
+]
 
 [start]
 cmd = "cd apps/api && node src/index.js"
