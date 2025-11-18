@@ -1,7 +1,7 @@
 import express from 'express'
 import db from '../config/database.js'
 import logger from '../utils/logger.js'
-import { env } from '../config/env.js'
+import config from '../config/env.js'
 
 const router = express.Router()
 
@@ -9,38 +9,38 @@ const router = express.Router()
 router.get('/config', async (req, res, next) => {
   try {
     // Return non-sensitive configuration
-    const config = {
+    const settingsConfig = {
       polling: {
-        interval: env.POLLING_INTERVAL || 300000,
-        enabled: env.POLLING_ENABLED !== 'false',
-        max_results_per_poll: env.MAX_RESULTS_PER_POLL || 100
+        interval: config.polling.intervalMinutes * 60000,
+        enabled: true,
+        max_results_per_poll: 100
       },
       platforms: {
         twitter: {
-          enabled: !!env.TWITTER_ACCESS_TOKEN,
+          enabled: !!config.twitter.accessToken,
           rate_limit: 15 // requests per 15 minutes
         },
         linkedin: {
-          enabled: !!env.LINKEDIN_ACCESS_TOKEN,
+          enabled: !!config.linkedin.accessToken,
           rate_limit: 100 // requests per day
         }
       },
       notifications: {
         telegram: {
-          enabled: !!env.TELEGRAM_BOT_TOKEN && !!env.TELEGRAM_CHAT_ID,
-          min_score_for_notification: env.MIN_SCORE_FOR_NOTIFICATION || 7
+          enabled: !!config.telegram.botToken && !!config.telegram.chatId,
+          min_score_for_notification: config.scoring.notificationMinScore
         }
       },
       scoring: {
-        enabled: !!env.OPENAI_API_KEY,
-        model: 'gpt-3.5-turbo',
+        enabled: !!config.openai.apiKey,
+        model: config.openai.model,
         max_score: 10
       },
-      environment: env.NODE_ENV || 'development',
+      environment: config.nodeEnv,
       version: '1.0.0'
     }
 
-    res.json(config)
+    res.json(settingsConfig)
   } catch (error) {
     next(error)
   }
@@ -138,7 +138,7 @@ router.get('/stats', async (req, res, next) => {
       },
       polling: {
         last_polls: lastPollByPlatform,
-        next_poll_in: env.POLLING_INTERVAL ? `${Math.floor(env.POLLING_INTERVAL / 60000)} minutes` : 'Unknown'
+        next_poll_in: `${config.polling.intervalMinutes} minutes`
       },
       system: {
         uptime,
@@ -163,7 +163,7 @@ router.post('/test-notification', async (req, res, next) => {
   try {
     const { message = 'This is a test notification from Leadscout' } = req.body
 
-    if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) {
+    if (!config.telegram.botToken || !config.telegram.chatId) {
       return res.status(503).json({
         error: 'Telegram notifications are not configured'
       })
