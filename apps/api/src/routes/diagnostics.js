@@ -1,5 +1,5 @@
 import express from 'express';
-import twitterClient from '../config/twitter.js';
+import { getTwitterClient } from '../config/twitter.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -10,6 +10,16 @@ const router = express.Router();
  */
 router.get('/twitter-quota', async (req, res) => {
   try {
+    const twitterClient = getTwitterClient();
+
+    if (!twitterClient) {
+      return res.status(503).json({
+        timestamp: new Date().toISOString(),
+        status: 'unavailable',
+        error: 'Twitter client not initialized'
+      });
+    }
+
     const diagnostic = {
       timestamp: new Date().toISOString(),
       status: 'running',
@@ -334,10 +344,17 @@ router.get('/system-status', async (req, res) => {
 
   // Check Twitter connection
   try {
-    await twitterClient.v2.me();
-    status.services.twitter = {
-      status: 'authenticated'
-    };
+    const twitterClient = getTwitterClient();
+    if (!twitterClient) {
+      status.services.twitter = {
+        status: 'not_initialized'
+      };
+    } else {
+      await twitterClient.v2.me();
+      status.services.twitter = {
+        status: 'authenticated'
+      };
+    }
   } catch (twitterError) {
     status.services.twitter = {
       status: twitterError.code === 429 ? 'rate_limited' : 'error',

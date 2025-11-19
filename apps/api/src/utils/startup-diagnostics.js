@@ -9,7 +9,19 @@ export async function runStartupDiagnostics() {
 
   try {
     // Dynamic import to avoid circular dependencies
-    const twitterClient = (await import('../config/twitter.js')).default;
+    const { getTwitterClient } = await import('../config/twitter.js');
+    const twitterClient = getTwitterClient();
+
+    if (!twitterClient) {
+      logger.error('Twitter client not initialized');
+      return {
+        timestamp: new Date().toISOString(),
+        twitter: {
+          status: 'not_initialized',
+          error: 'Twitter client not available'
+        }
+      };
+    }
 
     const results = {
       timestamp: new Date().toISOString(),
