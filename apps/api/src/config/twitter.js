@@ -94,7 +94,16 @@ async function withRateLimitRetry(apiCall, maxRetries = 3) {
     try {
       return await apiCall();
     } catch (error) {
-      // Check if it's a rate limit error
+      // 403 = Authentication/Authorization error (don't retry)
+      if (error.code === 403) {
+        logger.error('Twitter API authentication failed (403)', {
+          error: error.message,
+          hint: 'Bearer Token may be invalid or expired. Update TWITTER_BEARER_TOKEN in Railway environment variables.'
+        });
+        throw new Error('Twitter authentication failed: Invalid or expired Bearer Token');
+      }
+
+      // 429 = Rate limit error (retry with backoff)
       if (error.code === 429 || error.rateLimit) {
         retries++;
         const resetTime = error.rateLimit?.reset
@@ -114,7 +123,11 @@ async function withRateLimitRetry(apiCall, maxRetries = 3) {
         await new Promise(resolve => setTimeout(resolve, delay));
         delay *= 2; // Double the delay for next retry
       } else {
-        // Not a rate limit error, throw immediately
+        // Other errors, throw immediately
+        logger.error('Twitter API error', {
+          code: error.code,
+          error: error.message
+        });
         throw error;
       }
     }

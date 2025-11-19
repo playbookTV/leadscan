@@ -28,29 +28,39 @@ export async function runStartupDiagnostics() {
       twitter: {}
     };
 
-    // 1. Test Twitter authentication
+    // 1. Test Twitter authentication (using Bearer Token compatible endpoint)
+    // Note: Bearer Token (OAuth 2.0 app-only) doesn't support /2/users/me
+    // We'll test auth by checking rate limits instead
     try {
-      const client = await twitterClient.v2.me();
+      // Get rate limit status - this works with Bearer Token
+      const rateLimits = await twitterClient.v2.rateLimits();
+
       results.twitter.authentication = {
         status: 'success',
-        username: client.data.username,
-        userId: client.data.id
+        method: 'bearer_token',
+        note: 'OAuth 2.0 App-only authentication (Bearer Token)'
       };
 
       logger.info('Twitter authentication successful', {
-        username: client.data.username,
-        userId: client.data.id
+        method: 'bearer_token',
+        rateLimitsAvailable: Object.keys(rateLimits.resources).length
       });
     } catch (authError) {
       results.twitter.authentication = {
         status: 'failed',
         error: authError.message,
-        code: authError.code
+        code: authError.code,
+        hint: authError.code === 403
+          ? 'Bearer Token may be invalid or expired. Check TWITTER_BEARER_TOKEN in Railway environment variables.'
+          : 'Check Twitter API credentials in Railway dashboard.'
       };
 
       logger.error('Twitter authentication failed', {
         error: authError.message,
-        code: authError.code
+        code: authError.code,
+        hint: authError.code === 403
+          ? 'Invalid/expired Bearer Token - update TWITTER_BEARER_TOKEN in Railway'
+          : 'Authentication error - check API credentials'
       });
 
       // If auth fails, don't proceed with other checks
