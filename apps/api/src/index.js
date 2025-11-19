@@ -12,6 +12,7 @@ import { pollAllPlatforms, getPollingStats } from './services/polling.js';
 import { setupCallbackHandlers } from './services/notifier.js';
 import { getTimeAgo } from './utils/helpers.js';
 import websocketService from './services/websocket-service.js';
+import { runStartupDiagnostics } from './utils/startup-diagnostics.js';
 
 // Global state
 let isShuttingDown = false;
@@ -205,6 +206,26 @@ async function startApplication() {
 
     // Log service status
     logger.info('Service initialization complete', services);
+
+    // Run startup diagnostics for Twitter
+    if (services.twitter) {
+      logger.info('========================================');
+      logger.info('Running Twitter API diagnostics...');
+      logger.info('========================================');
+
+      try {
+        await runStartupDiagnostics();
+      } catch (diagError) {
+        logger.error('Startup diagnostics failed (non-fatal)', {
+          error: diagError.message
+        });
+      }
+
+      logger.info('========================================');
+      logger.info('Diagnostics complete. Check logs above for Twitter quota status.');
+      logger.info('For detailed analysis, visit: /api/diagnostics/twitter-quota');
+      logger.info('========================================');
+    }
 
     // Check if minimum required services are available
     if (!services.database) {
