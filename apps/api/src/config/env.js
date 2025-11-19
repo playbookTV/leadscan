@@ -75,7 +75,13 @@ const config = {
     apiSecret: getEnv('TWITTER_API_SECRET', optionalEnvVars.TWITTER_API_SECRET),
     bearerToken: getEnv('TWITTER_BEARER_TOKEN', optionalEnvVars.TWITTER_BEARER_TOKEN),
     accessToken: getEnv('TWITTER_ACCESS_TOKEN', optionalEnvVars.TWITTER_ACCESS_TOKEN),
-    accessSecret: getEnv('TWITTER_ACCESS_SECRET', optionalEnvVars.TWITTER_ACCESS_SECRET)
+    accessSecret: getEnv('TWITTER_ACCESS_SECRET', optionalEnvVars.TWITTER_ACCESS_SECRET),
+    // Optimization settings
+    maxKeywordsPerCycle: getEnvInt('TWITTER_MAX_KEYWORDS_PER_CYCLE', 20),
+    enableRotation: getEnv('TWITTER_ENABLE_KEYWORD_ROTATION', 'true') === 'true',
+    enablePrioritization: getEnv('TWITTER_ENABLE_KEYWORD_PRIORITIZATION', 'true') === 'true',
+    enableBatching: getEnv('TWITTER_ENABLE_BATCHING', 'false') === 'true',
+    rateLimitThreshold: getEnvInt('TWITTER_RATE_LIMIT_THRESHOLD', 50)
   },
 
   reddit: {

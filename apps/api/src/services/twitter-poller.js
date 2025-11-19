@@ -1,6 +1,7 @@
 import config from '../config/env.js';
 import logger from '../utils/logger.js';
 import { getTwitterClient, withRateLimitRetry } from '../config/twitter.js';
+import { getOptimizedKeywords, batchKeywords, shouldContinuePolling } from './keyword-optimizer.js';
 
 /**
  * Poll Twitter for new posts matching keywords
@@ -17,35 +18,81 @@ async function pollTwitter(keywords) {
   const leads = [];
   const sinceTime = new Date(Date.now() - config.polling.intervalMinutes * 60 * 1000);
 
-  for (const keyword of keywords) {
-    // Skip inactive keywords or keywords explicitly set to a different platform
-    // NULL platform means "all platforms", so those should be included
-    if (!keyword.is_active || (keyword.platform && keyword.platform !== 'twitter')) {
-      continue;
-    }
+  // OPTIMIZATION: Get optimized keyword list
+  const optimizedKeywords = await getOptimizedKeywords(keywords, 'twitter');
 
+  if (optimizedKeywords.length === 0) {
+    logger.warn('No keywords selected after optimization');
+    return [];
+  }
+
+  logger.info('Starting Twitter polling with optimized keywords', {
+    originalCount: keywords.length,
+    optimizedCount: optimizedKeywords.length,
+    reduction: `${Math.round((1 - optimizedKeywords.length / keywords.length) * 100)}%`
+  });
+
+  // OPTIMIZATION: Check if batching is enabled
+  const enableBatching = process.env.TWITTER_ENABLE_BATCHING === 'true';
+  const batches = enableBatching
+    ? batchKeywords(optimizedKeywords, 3)
+    : optimizedKeywords.map(k => ({ query: k.keyword, keywords: [k], isBatched: false }));
+
+  logger.info('Query batching applied', {
+    keywords: optimizedKeywords.length,
+    queries: batches.length,
+    batchingEnabled: enableBatching
+  });
+
+  let apiCallsUsed = 0;
+  let rateLimitRemaining = null;
+
+  for (const batch of batches) {
     try {
-      const searchResults = await searchTweets(client, keyword.keyword, sinceTime);
-      const processedLeads = processTwitterResults(searchResults, keyword);
-      leads.push(...processedLeads);
+      // OPTIMIZATION: Check rate limits before continuing
+      if (rateLimitRemaining !== null && !await shouldContinuePolling(apiCallsUsed, rateLimitRemaining)) {
+        logger.warn('Stopping polling due to rate limit threshold', {
+          apiCallsUsed,
+          remaining: rateLimitRemaining
+        });
+        break;
+      }
 
-      logger.info('Twitter keyword search completed', {
-        keyword: keyword.keyword,
-        resultsCount: searchResults.length,
-        leadsCreated: processedLeads.length
-      });
+      const searchResults = await searchTweets(client, batch.query, sinceTime);
+      apiCallsUsed++;
+
+      // Track rate limit from response
+      if (searchResults.rateLimit) {
+        rateLimitRemaining = searchResults.rateLimit.remaining;
+      }
+
+      // Process results for all keywords in the batch
+      for (const keyword of batch.keywords) {
+        const processedLeads = processTwitterResults(searchResults.tweets || searchResults, keyword);
+        leads.push(...processedLeads);
+
+        logger.info('Twitter search completed', {
+          query: batch.isBatched ? `${batch.keywords.length} keywords batched` : keyword.keyword,
+          keyword: keyword.keyword,
+          resultsCount: searchResults.tweets?.length || searchResults.length,
+          leadsCreated: processedLeads.length
+        });
+      }
     } catch (error) {
-      logger.error('Failed to search Twitter for keyword', {
+      logger.error('Failed to search Twitter', {
         error: error.message,
-        keyword: keyword.keyword
+        query: batch.query,
+        keywords: batch.keywords.map(k => k.keyword)
       });
-      // Continue with other keywords
+      // Continue with other batches
     }
   }
 
   logger.info('Twitter polling completed', {
-    keywordsSearched: keywords.filter(k => (!k.platform || k.platform === 'twitter') && k.is_active).length,
-    totalLeads: leads.length
+    keywordsSearched: optimizedKeywords.length,
+    queriesExecuted: apiCallsUsed,
+    totalLeads: leads.length,
+    rateLimitRemaining
   });
 
   return leads;
@@ -68,7 +115,7 @@ async function searchTweets(client, keyword, sinceTime) {
     });
 
     // Use rate limit retry wrapper
-    const results = await withRateLimitRetry(async () => {
+    const { tweets, rateLimit } = await withRateLimitRetry(async () => {
       const response = await client.v2.search(query, {
         'start_time': sinceTime.toISOString(),
         'max_results': 100, // Maximum allowed per request
@@ -115,15 +162,23 @@ async function searchTweets(client, keyword, sinceTime) {
         }
       }
 
-      return tweets;
+      return {
+        tweets,
+        rateLimit: response.rateLimit ? {
+          limit: response.rateLimit.limit,
+          remaining: response.rateLimit.remaining,
+          reset: new Date(response.rateLimit.reset * 1000)
+        } : null
+      };
     });
 
     logger.debug('Twitter search completed', {
       keyword: keyword,
-      resultsCount: results.length
+      resultsCount: tweets.length,
+      rateLimit: rateLimit ? `${rateLimit.remaining}/${rateLimit.limit}` : 'unknown'
     });
 
-    return results;
+    return { tweets, rateLimit };
   } catch (error) {
     logger.error('Twitter search failed', {
       error: error.message,

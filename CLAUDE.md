@@ -344,9 +344,32 @@ See [apps/api/database/schema.sql](apps/api/database/schema.sql) for complete sc
 ## API Rate Limits & Cost Controls
 
 - **Twitter API**: 450 requests per 15-min window (free tier), 500k tweets/month
+  - **Optimizations implemented**: Reduces 129 keyword searches to 20 per cycle (84% reduction)
+  - See [TWITTER_OPTIMIZATION.md](TWITTER_OPTIMIZATION.md) for detailed configuration
 - **LinkedIn RSS**: No official limits, but feeds polled every 2 hours to be respectful
 - **OpenAI API**: $2/day budget enforced in code, tracks usage in database
 - **Telegram Bot**: 30 messages/second per chat (very generous)
+
+### Twitter API Optimization Features
+
+The system implements multiple strategies to stay within Twitter's free tier limits:
+
+1. **Keyword Prioritization**: Searches only high-performing keywords based on conversion rate, recent activity, and lead quality
+2. **Keyword Rotation**: Distributes searches over time using round-robin (20 keywords per 30-min cycle)
+3. **Query Batching** (optional): Combines related keywords using OR operators to reduce API calls
+4. **Rate Limit Monitoring**: Stops polling when approaching rate limits to prevent errors
+5. **Production Optimization**: Skips connection test in production to save 1 API call per restart
+
+**Default Configuration** (apps/api/.env):
+```bash
+TWITTER_MAX_KEYWORDS_PER_CYCLE=20           # Keywords per cycle
+TWITTER_ENABLE_KEYWORD_ROTATION=true        # Enable rotation
+TWITTER_ENABLE_KEYWORD_PRIORITIZATION=true  # Prioritize by performance
+TWITTER_ENABLE_BATCHING=false               # Disable batching (experimental)
+TWITTER_RATE_LIMIT_THRESHOLD=50             # Stop when ≤50 calls remaining
+```
+
+**Impact**: Reduces API usage from ~6,192 calls/day to ~960 calls/day (84% reduction)
 
 ## Deployment
 
@@ -418,6 +441,12 @@ See [.cursor/rules/codacy.mdc](../.cursor/rules/codacy.mdc) for complete Codacy 
 5. Export functions for use in index.js or other services
 6. Test with `pnpm --filter @leadscout/api run dev`
 7. Run `codacy_cli_analyze` on edited files
+
+**Example**: See [keyword-optimizer.js](apps/api/src/services/keyword-optimizer.js) for a complete service implementation with:
+- Performance-based keyword prioritization
+- Round-robin keyword rotation
+- Query batching with OR operators
+- Rate limit monitoring
 
 ### Adding a New Database Table
 1. Update `apps/api/database/schema.sql`

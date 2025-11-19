@@ -42,7 +42,13 @@ async function initializeServices() {
   try {
     logger.info('Initializing Twitter client...');
     initializeTwitterClient();
-    services.twitter = await testTwitterConnection();
+    // Skip connection test in production to save API calls
+    if (config.nodeEnv === 'development') {
+      services.twitter = await testTwitterConnection();
+    } else {
+      services.twitter = true; // Assume it works in production
+      logger.info('Twitter client initialized (skipping connection test in production)');
+    }
   } catch (error) {
     logger.warn('Twitter service not available', { error: error.message });
   }
