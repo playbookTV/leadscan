@@ -34,11 +34,62 @@ function initializeTelegramBot() {
 
     // Handle polling errors if polling is enabled
     if (usePolling) {
-      telegramBot.on('polling_error', (error) => {
+      let reconnectAttempts = 0;
+      const MAX_RECONNECT_ATTEMPTS = 5;
+      const RECONNECT_DELAY = 5000; // 5 seconds
+
+      telegramBot.on('polling_error', async (error) => {
         logger.error('Telegram polling error', {
           error: error.message,
           code: error.code
         });
+
+        // Fatal errors that indicate connection issues
+        const isFatalError = error.code === 'EFATAL' ||
+                            error.code === 'ECONNRESET' ||
+                            error.code === 'ETIMEDOUT' ||
+                            error.code === 'ENOTFOUND' ||
+                            error.message?.includes('ECONNRESET') ||
+                            error.message?.includes('read ECONNRESET');
+
+        if (isFatalError && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+          reconnectAttempts++;
+          logger.warn('Attempting to reconnect Telegram bot', {
+            attempt: reconnectAttempts,
+            maxAttempts: MAX_RECONNECT_ATTEMPTS,
+            delayMs: RECONNECT_DELAY
+          });
+
+          // Wait before reconnecting
+          await new Promise(resolve => setTimeout(resolve, RECONNECT_DELAY));
+
+          try {
+            // Stop current polling
+            await telegramBot.stopPolling({ cancel: true });
+            logger.info('Stopped Telegram polling');
+
+            // Restart polling
+            await telegramBot.startPolling();
+            logger.info('Restarted Telegram polling successfully');
+
+            // Reset reconnect counter on success
+            reconnectAttempts = 0;
+          } catch (reconnectError) {
+            logger.error('Failed to reconnect Telegram bot', {
+              error: reconnectError.message,
+              attempt: reconnectAttempts
+            });
+
+            // If we've exhausted all attempts, log critical error
+            if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+              logger.error('Telegram bot reconnection failed after maximum attempts', {
+                maxAttempts: MAX_RECONNECT_ATTEMPTS,
+                lastError: reconnectError.message
+              });
+              // Could send alert here via email or other channel
+            }
+          }
+        }
       });
     }
 

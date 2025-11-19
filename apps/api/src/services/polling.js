@@ -6,6 +6,7 @@ import { pollReddit } from './reddit-poller.js';
 import { checkDuplicate, scoreLead } from './lead-scorer.js';
 import { sendLeadAlert } from './notifier.js';
 import websocketService from './websocket-service.js';
+import { retryDatabaseOperation } from '../utils/retry.js';
 
 // Track polling state
 let isPolling = false;
@@ -149,10 +150,10 @@ async function pollAllPlatforms() {
 }
 
 /**
- * Fetch active keywords from database
+ * Fetch active keywords from database with retry logic
  */
 async function fetchActiveKeywords() {
-  try {
+  return retryDatabaseOperation(async () => {
     const db = getDatabase();
     const { data: keywords, error } = await db
       .from('keywords')
@@ -161,6 +162,11 @@ async function fetchActiveKeywords() {
       .order('created_at', { ascending: true });
 
     if (error) {
+      logger.error('Supabase query error', {
+        error: error.message,
+        code: error.code,
+        hint: error.hint
+      });
       throw error;
     }
 
@@ -171,12 +177,7 @@ async function fetchActiveKeywords() {
     }
 
     return keywords;
-  } catch (error) {
-    logger.error('Failed to fetch keywords', {
-      error: error.message
-    });
-    throw error;
-  }
+  }, 'fetch active keywords');
 }
 
 /**
