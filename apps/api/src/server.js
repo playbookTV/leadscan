@@ -11,6 +11,7 @@ import analyticsRoutes from './routes/analytics.js'
 import settingsRoutes from './routes/settings.js'
 import emailRoutes from './routes/email.js'
 import telegramRoutes from './routes/telegram.js'
+import diagnosticsRoutes from './routes/diagnostics.js'
 
 const app = express()
 
@@ -41,6 +42,7 @@ app.use('/api/analytics', analyticsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/email', emailRoutes)
 app.use('/api/telegram', telegramRoutes)
+app.use('/api/diagnostics', diagnosticsRoutes)
 
 // Error handling middleware
 app.use((err, req, res, next) => {

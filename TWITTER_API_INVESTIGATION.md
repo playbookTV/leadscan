@@ -185,9 +185,9 @@ POLLING_CRON_SCHEDULE=0 */1 * * *  # Every 1 hour
    ```bash
    # Run diagnostic script
    cd apps/api
-   node scripts/test-twitter-api.js
+   node scripts/check-twitter-quota.js
    ```
-   This will show your exact rate limits.
+   This will show your exact rate limits, monthly cap status, and recommendations.
 
 2. **Check Twitter Developer Portal**:
    - Visit: https://developer.x.com/en/portal/dashboard
