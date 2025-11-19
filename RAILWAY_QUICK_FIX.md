@@ -17,8 +17,12 @@ Find each variable and change its value:
 
 #### Variable 1: POLLING_CRON_SCHEDULE
 ```
-Current: */30 * * * *
+Current: */30 * * * *  OR  */1 * * * *
 Change to: 0 */1 * * *
+
+IMPORTANT: Note the "0" at the start - this means "at minute 0 of every hour"
+- WRONG: */1 * * * * (runs every MINUTE)
+- RIGHT:  0 */1 * * * (runs every HOUR)
 ```
 
 #### Variable 2: POLLING_INTERVAL_MINUTES
