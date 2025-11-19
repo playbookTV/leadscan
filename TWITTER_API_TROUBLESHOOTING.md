@@ -2,18 +2,21 @@
 
 ## Common Errors and Solutions
 
-### 403 Forbidden Error
+### 403 Forbidden Error ⚠️ MOST COMMON ISSUE
 
 **Symptoms:**
 - Railway logs show: `Twitter authentication failed {"error":"Request failed with code 403","code":403}`
+- Error message: `twitterClient.v2.rateLimits is not a function` (old version - now fixed)
 - Polling cycles fail immediately
 - No leads are discovered
+- May also see cascading 429 rate limit errors after 403
 
 **Root Cause:**
 Your Twitter Bearer Token is either:
-1. **Invalid** - Incorrect token copied to Railway
+1. **Invalid** - Incorrect token copied to Railway (most common)
 2. **Expired** - Token was revoked or regenerated in Twitter Developer Portal
 3. **Insufficient permissions** - App doesn't have correct access level
+4. **Wrong authentication type** - Using user token instead of Bearer Token
 
 **Solution:**
 

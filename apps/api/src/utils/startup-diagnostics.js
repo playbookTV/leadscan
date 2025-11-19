@@ -30,10 +30,14 @@ export async function runStartupDiagnostics() {
 
     // 1. Test Twitter authentication (using Bearer Token compatible endpoint)
     // Note: Bearer Token (OAuth 2.0 app-only) doesn't support /2/users/me
-    // We'll test auth by checking rate limits instead
+    // We'll use a simple search to test auth and get rate limits
     try {
-      // Get rate limit status - this works with Bearer Token
-      const rateLimits = await twitterClient.v2.rateLimits();
+      // Perform a minimal search query to verify authentication
+      // This works with Bearer Token and returns rate limit info
+      const testResponse = await twitterClient.v2.search('test', {
+        max_results: 10,
+        'tweet.fields': ['created_at']
+      });
 
       results.twitter.authentication = {
         status: 'success',
@@ -43,25 +47,58 @@ export async function runStartupDiagnostics() {
 
       logger.info('Twitter authentication successful', {
         method: 'bearer_token',
-        rateLimitsAvailable: Object.keys(rateLimits.resources).length
+        resultsCount: testResponse.meta?.result_count || 0
       });
+
+      // Extract rate limit info from the response
+      if (testResponse.rateLimit) {
+        results.twitter.initialRateLimit = {
+          limit: testResponse.rateLimit.limit,
+          remaining: testResponse.rateLimit.remaining,
+          reset: new Date(testResponse.rateLimit.reset * 1000).toISOString()
+        };
+
+        logger.info('Twitter rate limit status', {
+          limit: testResponse.rateLimit.limit,
+          remaining: testResponse.rateLimit.remaining,
+          percentUsed: Math.round(((testResponse.rateLimit.limit - testResponse.rateLimit.remaining) / testResponse.rateLimit.limit) * 100)
+        });
+      }
     } catch (authError) {
       results.twitter.authentication = {
         status: 'failed',
         error: authError.message,
         code: authError.code,
+        data: authError.data, // Include API error details
         hint: authError.code === 403
           ? 'Bearer Token may be invalid or expired. Check TWITTER_BEARER_TOKEN in Railway environment variables.'
+          : authError.code === 429
+          ? 'Rate limit exhausted. Wait for reset or upgrade Twitter API tier.'
           : 'Check Twitter API credentials in Railway dashboard.'
       };
 
       logger.error('Twitter authentication failed', {
         error: authError.message,
         code: authError.code,
+        apiError: authError.data,
         hint: authError.code === 403
           ? 'Invalid/expired Bearer Token - update TWITTER_BEARER_TOKEN in Railway'
+          : authError.code === 429
+          ? 'Rate limit hit during startup - will retry at next polling cycle'
           : 'Authentication error - check API credentials'
       });
+
+      // Log specific guidance for 403 errors
+      if (authError.code === 403) {
+        logger.error('🚨 ACTION REQUIRED: Update Twitter Bearer Token', {
+          step1: 'Go to https://developer.twitter.com/en/portal/dashboard',
+          step2: 'Click your app → Keys and tokens tab',
+          step3: 'Under "Bearer Token", click "Regenerate"',
+          step4: 'Copy the new token (starts with AAAAAAAAAA...)',
+          step5: 'Update TWITTER_BEARER_TOKEN in Railway environment variables',
+          step6: 'Railway will auto-redeploy in ~2 minutes'
+        });
+      }
 
       // If auth fails, don't proceed with other checks
       return results;
