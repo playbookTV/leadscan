@@ -14,6 +14,8 @@ import { getTimeAgo } from './utils/helpers.js';
 import websocketService from './services/websocket-service.js';
 import { runStartupDiagnostics } from './utils/startup-diagnostics.js';
 
+//Here because of the way the code is structured, we need to import the process module here
+import process from 'process';
 // Global state
 let isShuttingDown = false;
 let cronJob = null;
