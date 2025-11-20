@@ -1,7 +1,6 @@
 import TelegramBot from 'node-telegram-bot-api';
 import config from './env.js';
 import logger from '../utils/logger.js';
-import { getDatabase } from './database.js';
 
 let telegramBot = null;
 let callbackHandlers = new Map();
@@ -43,6 +42,23 @@ function initializeTelegramBot() {
           error: error.message,
           code: error.code
         });
+
+        // 409 Conflict = Another bot instance is running (don't retry)
+        if (error.code === 'ETELEGRAM' && error.message?.includes('409 Conflict')) {
+          logger.error('🚨 CRITICAL: Multiple Telegram bot instances detected', {
+            error: error.message,
+            solution: 'Stop other bot instances or switch to webhook mode in production',
+            hint: 'Check Railway for multiple running deployments or local dev server'
+          });
+          // Stop polling to avoid infinite conflict loop
+          try {
+            await telegramBot.stopPolling({ cancel: true });
+            logger.warn('Stopped Telegram polling due to conflict');
+          } catch (stopError) {
+            logger.error('Failed to stop polling', { error: stopError.message });
+          }
+          return; // Don't attempt reconnection
+        }
 
         // Fatal errors that indicate connection issues
         const isFatalError = error.code === 'EFATAL' ||
